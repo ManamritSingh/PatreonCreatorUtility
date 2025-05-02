@@ -1,10 +1,10 @@
+.env
+*.csv
+patreon_tokens.json
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-
-.env
-patreon_tokens.json
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
