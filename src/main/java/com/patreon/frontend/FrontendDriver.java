@@ -1,5 +1,6 @@
 package com.patreon.frontend;
 
+import com.patreon.frontend.models.EmailReward;
 import com.patreon.frontend.models.EarningEntry;
 import com.patreon.frontend.models.PostEntry;
 import com.patreon.frontend.models.SurveyEntry;
@@ -7,7 +8,9 @@ import javafx.application.Application;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
+import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.chart.*;
@@ -16,6 +19,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
+import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 import java.io.BufferedReader;
@@ -33,14 +37,16 @@ public class FrontendDriver extends Application {
 
     private Stage window;
 
-    private TableView<EarningEntry> earningTable;
-    private TableView<PostEntry> postTable;
-    private TableView<SurveyEntry> surveyTable;
+    private TableView<EarningEntry> earningTable = new TableView<>();
+	private TableView<PostEntry> postTable = new TableView<>();
+	private TableView<SurveyEntry> surveyTable = new TableView<>();
+	private TableView<EmailReward> rewardsTable = new TableView<>();
 
-    private ObservableList<EarningEntry> earningData;
-    private ObservableList<PostEntry> postData;
-    private ObservableList<SurveyEntry> surveyData;
-
+	private ObservableList<EarningEntry> earningData = FXCollections.observableArrayList();
+	private ObservableList<PostEntry> postData = FXCollections.observableArrayList(); 
+	private ObservableList<SurveyEntry> surveyData = FXCollections.observableArrayList();
+	private ObservableList<EmailReward> rewardList = FXCollections.observableArrayList();
+	
     //Earnings Graphs
     private XYChart.Series<String, Number> monthlyEarningsSeries = new XYChart.Series<>();
     private XYChart.Series<String, Number> yearlyEarningsSeries = new XYChart.Series<>();
@@ -67,8 +73,9 @@ public class FrontendDriver extends Application {
         layout.setLeft(toolBar);
         layout.setCenter(tabPane);
 
-        // Initialize tabs and toolbar
+        // Initialize tabs,tables, and toolbars
         initializeTabs();
+        initializeTables();
         tabPane.getSelectionModel().select(0);
         updateToolBar(tabPane.getTabs().get(0).getText());
 
@@ -96,6 +103,9 @@ public class FrontendDriver extends Application {
         MenuItem menuOpen = new MenuItem("Open");
         MenuItem menuSave = new MenuItem("Save");
         Menu viewMenu = new Menu("View");
+        Menu charts = new Menu("Charts");
+        Menu dataFiles = new Menu("Data File");
+        MenuItem emailRewards = new MenuItem("Email Rewards");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
@@ -105,7 +115,7 @@ public class FrontendDriver extends Application {
         MenuItem viewEarningsFile = new MenuItem("Earnings File");
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
 
-        // View menu actions
+        
         viewRevenue.setOnAction(e -> openTab("Revenue"));
         viewRetention.setOnAction(e -> openTab("Retention"));
         viewDemographics.setOnAction(e -> openTab("Demographics"));
@@ -113,80 +123,18 @@ public class FrontendDriver extends Application {
         viewPostFile.setOnAction(e -> openTab("Posts File"));
         viewEarningsFile.setOnAction(e -> openTab("Earnings File"));
         viewSurveyFile.setOnAction(e -> openTab("Surveys File"));
+        
+        emailRewards.setOnAction(e -> openTab("Email Rewards"));
 
 
 
         //Open CSV Files
-        menuOpen.setOnAction(e -> {
-            try{
-                FileChooser fileChooser = new FileChooser();
-                fileChooser.setTitle("Open CSV File");
-                fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
-                File file = fileChooser.showOpenDialog(window);
+        menuOpen.setOnAction(e -> openFile());
 
-                if (file != null) {
-                    List<String> options = Arrays.asList("Earnings", "Posts", "Surveys");
-                    ChoiceDialog<String> dialog = new ChoiceDialog<>("Earnings", options);
-                    dialog.setTitle("Select Data Type");
-                    dialog.setHeaderText("What type of data is this?");
-                    dialog.setContentText("Choose type:");
-
-                    Optional<String> result = dialog.showAndWait();
-
-                    if (result.isPresent()) {
-                        String type = result.get();
-                        Tab targetTab = null;
-                        VBox chartBox = null;
-
-                        switch (type) {
-                            case "Earnings":
-                                earningTable = parseEarningsCSV(file);
-                                targetTab = getTabByName("Revenue");
-                                monthlyEarningsSeries = buildMonthlyEarningsSeries();
-                                yearlyEarningsSeries = buildYearlyEarningsSeries();
-
-                                monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
-                                yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
-
-                                revenueChartBox.getChildren().setAll(monthlyEarningsChart);
-                                chartBox = revenueChartBox;
-                                break;
-                            case "Posts":
-                                postTable = parsePostsCSV(file);
-                                targetTab = getTabByName("Campaign Activity");
-
-                                CategoryAxis x = new CategoryAxis();
-                                x.setLabel("Post Titles");
-
-                                NumberAxis y = new NumberAxis();
-                                y.setLabel("Count");
-
-                                postSBC = new StackedBarChart<>(x, y);
-                                postSBC.setTitle("Post Activity");
-
-                                campaignChartBox.getChildren().setAll(postSBC);
-                                chartBox = campaignChartBox;
-                                break;
-                            case "Surveys":
-                                surveyTable = parseSurveysCSV(file);
-                                targetTab = getTabByName("Retention"); // or "Demographics" if you prefer
-                                break;
-                        }
-
-                        if (targetTab != null && chartBox!=null) {
-                            VBox tabContent = (VBox) targetTab.getContent();
-                            tabContent.getChildren().clear();
-                            tabContent.getChildren().add(chartBox); // Later, you can also add chart + filters here
-                        }
-                    }
-                }
-            }catch (Exception ex) {
-                ex.printStackTrace();
-                System.out.println("Error opening file: " + ex.getMessage());}
-        });
-
-        viewMenu.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign, viewPostFile, viewEarningsFile, viewSurveyFile);
-        fileMenu.getItems().addAll(menuOpen, viewMenu, menuSave);
+        viewMenu.getItems().addAll(charts,dataFiles);
+        charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
+        dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile);
+        fileMenu.getItems().addAll(menuOpen, viewMenu, menuSave, emailRewards);
         menuBar.getMenus().add(fileMenu);
 
         return menuBar;
@@ -232,11 +180,160 @@ public class FrontendDriver extends Application {
         } else if (section.equals("Surveys File") && surveyTable != null) {
             tabContent.getChildren().add(surveyTable); // Add the Surveys table
             // You can also add any relevant graph for Surveys data here
+        } else if (section.equals("Email Rewards")) {
+        	tabContent.getChildren().add(rewardsTable);
         }
 
         newTab.setContent(tabContent); // Set the content of the new tab
         tabPane.getTabs().add(newTab); // Add the new tab to the tab pane
         tabPane.getSelectionModel().select(newTab); // Select the new tab
+    }
+    
+    private void initializeTables() {
+    	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
+    	setupEarningTableColumns();
+    	earningTable.setItems(earningData);
+    	
+    	setupPostTableColumns();
+    	postTable.setItems(postData);
+    	
+    	setupSurveyTableColumns();
+    	surveyTable.setItems(surveyData);
+    	
+    	setupRewardsTableColumns();
+    	rewardsTable.setItems(rewardList);
+    }
+    
+    private void newReward() {
+        Stage popupStage = new Stage();
+        popupStage.initModality(Modality.APPLICATION_MODAL);
+        popupStage.setTitle("New Email Reward");
+
+        // Trigger dropdown
+        Label triggerLabel = new Label("Trigger:");
+        ComboBox<String> triggerCombo = new ComboBox<>();
+        triggerCombo.getItems().addAll(
+                "Send Now", "New Subscriber", "Upgraded Tier", "Survey Completion", "Yearly Anniversary", "Unsubscribed"
+        );
+        triggerCombo.setValue("Send Now");
+
+        // Recipient checkboxes
+        Label recipientLabel = new Label("Recipient:");
+        CheckBox everyone = new CheckBox("Everyone");
+        CheckBox tier1 = new CheckBox("Tier 1");
+        CheckBox tier2 = new CheckBox("Tier 2");
+        CheckBox tier3 = new CheckBox("Tier 3");
+
+        HBox recipientBox = new HBox(10, everyone, tier1, tier2, tier3);
+        recipientBox.setAlignment(Pos.CENTER_LEFT);
+
+        // Subject input
+        Label subjectLabel = new Label("Subject:");
+        TextField subjectField = new TextField();
+        subjectField.setPromptText("Enter subject");
+
+        // Email Message input
+        Label messageLabel = new Label("Email Message:");
+        TextArea messageArea = new TextArea();
+        messageArea.setPrefRowCount(6);
+        messageArea.setWrapText(true);
+        messageArea.setPromptText("Enter reward email message");
+        
+        Tooltip tooltip = new Tooltip("Use {FIRST_NAME} and {LAST_NAME} to personalize emails.");
+        Tooltip.install(messageArea, tooltip);
+
+
+        // Done button
+        Button doneButton = new Button("Done");
+        doneButton.setOnAction(e -> {
+            String trigger = triggerCombo.getValue();
+            List<String> recipients = new ArrayList<>();
+            if (everyone.isSelected()) recipients.add("Everyone");
+            if (tier1.isSelected()) recipients.add("Tier 1");
+            if (tier2.isSelected()) recipients.add("Tier 2");
+            if (tier3.isSelected()) recipients.add("Tier 3");
+            
+
+            String subject = subjectField.getText();
+            SimpleStringProperty subjectText = new SimpleStringProperty(subject);
+            String message = messageArea.getText();
+            SimpleStringProperty messageText = new SimpleStringProperty(message);
+            SimpleStringProperty triggerText = new SimpleStringProperty(trigger);
+            
+            if (subject.isBlank() || recipients.isEmpty()) {
+                Alert alert = new Alert(Alert.AlertType.WARNING, "Please enter a subject and select at least one recipient.", ButtonType.OK);
+                alert.showAndWait();
+                return;
+            }
+
+
+            EmailReward reward = new EmailReward(subjectText, messageText, triggerText, recipients);
+            rewardList.add(reward);
+            
+            // Simulate saving logic
+            System.out.println("=== Email Trigger Saved ===");
+            System.out.println("Trigger: " + trigger);
+            System.out.println("Recipients: " + recipients);
+            System.out.println("Subject: " + subject);
+            System.out.println("Message: " + message);
+            System.out.println("===========================");
+
+            popupStage.close();
+        });
+        
+        //Cancel button
+        Button cancelButton = new Button("Cancel");
+        cancelButton.setOnAction(e -> popupStage.close());
+   
+        VBox layout = new VBox(10,
+                new HBox(10, triggerLabel, triggerCombo),
+                new VBox(5, recipientLabel, recipientBox),
+                new VBox(5, subjectLabel, subjectField),
+                new VBox(5, messageLabel, messageArea),
+                new HBox(5,cancelButton, doneButton)
+        );
+        layout.setPadding(new Insets(15));
+        layout.setAlignment(Pos.TOP_LEFT);
+
+        popupStage.setScene(new Scene(layout, 450, 400));
+        popupStage.showAndWait();
+    }
+    
+    @SuppressWarnings("unchecked")
+	private void setupRewardsTableColumns() {
+    	TableColumn<EmailReward, String> triggerCol = new TableColumn<>("Trigger");
+    	triggerCol.setCellValueFactory(cellData -> cellData.getValue().getTriggerOpt());
+    	
+    	TableColumn<EmailReward, String> recipientsCol = new TableColumn<>("Recipients");
+    	recipientsCol.setCellValueFactory(cellData -> new SimpleStringProperty(String.join(", ", cellData.getValue().getRecepients())));
+    	
+    	TableColumn<EmailReward, String> subjectCol = new TableColumn<>("Email Subject");
+    	subjectCol.setCellValueFactory(cellData -> cellData.getValue().getSubject());
+    	
+    	TableColumn<EmailReward, String> messageCol = new TableColumn<>("Email Message");
+    	messageCol.setCellValueFactory(cellData -> cellData.getValue().getMessage());
+    	
+    	rewardsTable.getColumns().addAll(triggerCol, recipientsCol, subjectCol, messageCol);
+    }
+    
+    private void deleteSelectedReward() {
+        EmailReward selected = rewardsTable.getSelectionModel().getSelectedItem();
+        if (selected != null) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, 
+                                      "Are you sure you want to delete this reward?", 
+                                      ButtonType.YES, ButtonType.NO);
+            confirm.setHeaderText("Confirm Delete");
+            Optional<ButtonType> result = confirm.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.YES) {
+                rewardList.remove(selected);
+            }
+        } else {
+            Alert alert = new Alert(Alert.AlertType.WARNING, 
+                                    "Please select a reward to delete.", 
+                                    ButtonType.OK);
+            alert.setHeaderText("No Selection");
+            alert.showAndWait();
+        }
     }
 
 
@@ -300,6 +397,15 @@ public class FrontendDriver extends Application {
 
                 toolBar.getItems().add(checkBoxPanel);
                 break;
+            case "Email Rewards":
+            	Button newRewardBtn = new Button("New");
+            	Button deleteRewardBtn = new Button("Delete");
+            	
+            	newRewardBtn.setOnAction(e -> newReward());
+            	deleteRewardBtn.setOnAction(e -> deleteSelectedReward());
+            	
+            	toolBar.getItems().addAll(newRewardBtn, deleteRewardBtn);
+            	break;
         }
     }
 
@@ -311,23 +417,89 @@ public class FrontendDriver extends Application {
         }
         return null;
     }
+    
+    private void openFile() {
+    	try{
+            FileChooser fileChooser = new FileChooser();
+            fileChooser.setTitle("Open CSV File");
+            fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV Files", "*.csv"));
+            File file = fileChooser.showOpenDialog(window);
+
+            if (file != null) {
+                List<String> options = Arrays.asList("Earnings", "Posts", "Surveys");
+                ChoiceDialog<String> dialog = new ChoiceDialog<>("Earnings", options);
+                dialog.setTitle("Select Data Type");
+                dialog.setHeaderText("What type of data is this?");
+                dialog.setContentText("Choose type:");
+
+                Optional<String> result = dialog.showAndWait();
+
+                if (result.isPresent()) {
+                    String type = result.get();
+                    Tab targetTab = null;
+                    VBox chartBox = null;
+
+                    switch (type) {
+                        case "Earnings":
+                            parseEarningsCSV(file);
+                            targetTab = getTabByName("Revenue");
+                            monthlyEarningsSeries = buildMonthlyEarningsSeries();
+                            yearlyEarningsSeries = buildYearlyEarningsSeries();
+
+                            monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
+                            yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
+
+                            revenueChartBox.getChildren().setAll(monthlyEarningsChart);
+                            chartBox = revenueChartBox;
+                            break;
+                        case "Posts":
+                            parsePostsCSV(file);
+                            targetTab = getTabByName("Campaign Activity");
+
+                            CategoryAxis x = new CategoryAxis();
+                            x.setLabel("Post Titles");
+
+                            NumberAxis y = new NumberAxis();
+                            y.setLabel("Count");
+
+                            postSBC = new StackedBarChart<>(x, y);
+                            postSBC.setTitle("Post Activity");
+
+                            campaignChartBox.getChildren().setAll(postSBC);
+                            chartBox = campaignChartBox;
+                            break;
+                        case "Surveys":
+                            parseSurveysCSV(file);
+                            targetTab = getTabByName("Retention"); // or "Demographics" if you prefer
+                            break;
+                    }
+
+                    if (targetTab != null && chartBox!=null) {
+                        VBox tabContent = (VBox) targetTab.getContent();
+                        tabContent.getChildren().clear();
+                        tabContent.getChildren().add(chartBox); 
+                    }
+                }
+            }
+        }catch (Exception ex) {
+            ex.printStackTrace();
+            System.out.println("Error opening file: " + ex.getMessage());}
+    }
 
 
     // ----------------------------
     // Parsing Files
     // ----------------------------
 
-    private TableView<EarningEntry> parseEarningsCSV(File file){
-        TableView<EarningEntry> table = new TableView<>();
-        earningData = FXCollections.observableArrayList();
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+    private void parseEarningsCSV(File file){
+    	earningData.clear();
+        
+    	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             String header = reader.readLine();
 
             if (header == null) {
                 showAlert("Error", "The file is empty.");
-                return table;
             }
 
             // Expected column headers (first few are enough to identify it as an earnings file)
@@ -348,7 +520,6 @@ public class FrontendDriver extends Application {
                         .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
                 if (!found) {
                     showAlert("Invalid File", "This doesn't appear to be an earnings CSV.");
-                    return table;
                 }
             }
 
@@ -382,9 +553,7 @@ public class FrontendDriver extends Application {
 
                 earningData.add(entry);
             }
-
-            table.setItems(earningData);
-            setupEarningTableColumns(table);
+            earningTable.setItems(earningData);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -393,8 +562,6 @@ public class FrontendDriver extends Application {
             e.printStackTrace();
             showAlert("Parsing Error", "There was an error while parsing the CSV.");
         }
-
-        return table;
     }
 
     private double parsePercent(String percentString) {
@@ -402,7 +569,7 @@ public class FrontendDriver extends Application {
     }
 
     @SuppressWarnings("unchecked")
-    private void setupEarningTableColumns(TableView<EarningEntry> table) {
+    private void setupEarningTableColumns() {
         TableColumn<EarningEntry, String> monthCol = new TableColumn<>("Month");
         monthCol.setCellValueFactory(cellData -> cellData.getValue().getMonth());
 
@@ -472,21 +639,17 @@ public class FrontendDriver extends Application {
                 perMemEarnCol, perMemProcFeeCol, perMemPatFeeCol, perGiftEarnCol, perGiftProcFeeCol,
                 perGiftPatFeeCol, currConvFeeCol, currConcFeePerCol, currencyCol);
 
-        table.getColumns().addAll(columns);
+        earningTable.getColumns().addAll(columns);
 
     }
 
-    private TableView<PostEntry> parsePostsCSV(File file){
-        TableView<PostEntry> table = new TableView<>();
-        postData = FXCollections.observableArrayList();
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+    private void parsePostsCSV(File file){
+    	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             String header = reader.readLine();
 
             if (header == null) {
                 showAlert("Error", "The file is empty.");
-                return table;
             }
 
             // Expected column headers (first few are enough to identify it as an earnings file)
@@ -503,7 +666,6 @@ public class FrontendDriver extends Application {
                         .anyMatch(h -> h.trim().equalsIgnoreCase(expected));
                 if (!found) {
                     showAlert("Invalid File", "This doesn't appear to be a posts CSV.");
-                    return table;
                 }
             }
 
@@ -524,8 +686,7 @@ public class FrontendDriver extends Application {
                 postData.add(entry);
             }
 
-            table.setItems(postData);
-            setupPostTableColumns(table);
+            postTable.setItems(postData);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -534,12 +695,10 @@ public class FrontendDriver extends Application {
             e.printStackTrace();
             showAlert("Parsing Error", "There was an error while parsing the CSV.");
         }
-
-        return table;
     }
 
     @SuppressWarnings("unchecked")
-    private void setupPostTableColumns(TableView<PostEntry> table) {
+    private void setupPostTableColumns() {
         TableColumn<PostEntry, String> titleCol = new TableColumn<>("Title");
         titleCol.setCellValueFactory(cellData -> cellData.getValue().getTitle());
 
@@ -564,21 +723,17 @@ public class FrontendDriver extends Application {
         TableColumn<PostEntry, String> linkCol = new TableColumn<>("Link");
         linkCol.setCellValueFactory(cellData -> cellData.getValue().getLink());
 
-        table.getColumns().addAll(titleCol, impressionsCol, likesCol, commentsCol, newFreeMemCol, newPaidMemCol,
+        postTable.getColumns().addAll(titleCol, impressionsCol, likesCol, commentsCol, newFreeMemCol, newPaidMemCol,
                 pubDateTimeCol, linkCol);
     }
 
-    private TableView<SurveyEntry> parseSurveysCSV(File file){
-        TableView<SurveyEntry> table = new TableView<>();
-        surveyData = FXCollections.observableArrayList();
-
-        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+    private void parseSurveysCSV(File file){
+    	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
             String line;
             String header = reader.readLine();
 
             if (header == null) {
                 showAlert("Error", "The file is empty.");
-                return table;
             }
 
             // Expected column headers (first few are enough to identify it as an earnings file)
@@ -594,7 +749,6 @@ public class FrontendDriver extends Application {
                         .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
                 if (!found) {
                     showAlert("Invalid File", "This doesn't appear to be a surveys CSV.");
-                    return table;
                 }
             }
 
@@ -615,8 +769,7 @@ public class FrontendDriver extends Application {
                 surveyData.add(entry);
             }
 
-            table.setItems(surveyData);
-            setupSurveyTableColumns(table);
+            surveyTable.setItems(surveyData);
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -625,12 +778,10 @@ public class FrontendDriver extends Application {
             e.printStackTrace();
             showAlert("Parsing Error", "There was an error while parsing the CSV.");
         }
-
-        return table;
     }
 
     @SuppressWarnings("unchecked")
-    private void setupSurveyTableColumns(TableView<SurveyEntry> table) {
+    private void setupSurveyTableColumns() {
         TableColumn<SurveyEntry, String> submittedDateTimeCol = new TableColumn<>("Submitted Date");
         submittedDateTimeCol.setCellValueFactory(cellData -> cellData.getValue().getSubmittedDateTime());
 
@@ -649,7 +800,7 @@ public class FrontendDriver extends Application {
         TableColumn<SurveyEntry, String> commentsCol = new TableColumn<>("Comments");
         commentsCol.setCellValueFactory(cellData -> cellData.getValue().getComments());
 
-        table.getColumns().addAll(submittedDateTimeCol, nameCol, emailCol, tierCol, surveyCol, commentsCol);
+        surveyTable.getColumns().addAll(submittedDateTimeCol, nameCol, emailCol, tierCol, surveyCol, commentsCol);
     }
 
     private void showAlert(String title, String message) {
