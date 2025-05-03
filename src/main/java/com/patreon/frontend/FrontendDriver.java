@@ -4,6 +4,8 @@ import com.patreon.frontend.models.EmailReward;
 import com.patreon.frontend.models.EarningEntry;
 import com.patreon.frontend.models.PostEntry;
 import com.patreon.frontend.models.SurveyEntry;
+import com.patreon.frontend.models.UserEntry;
+
 import javafx.application.Application;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
@@ -41,11 +43,13 @@ public class FrontendDriver extends Application {
 	private TableView<PostEntry> postTable = new TableView<>();
 	private TableView<SurveyEntry> surveyTable = new TableView<>();
 	private TableView<EmailReward> rewardsTable = new TableView<>();
+	private TableView<UserEntry> userTable = new TableView<>();
 
 	private ObservableList<EarningEntry> earningData = FXCollections.observableArrayList();
 	private ObservableList<PostEntry> postData = FXCollections.observableArrayList(); 
 	private ObservableList<SurveyEntry> surveyData = FXCollections.observableArrayList();
 	private ObservableList<EmailReward> rewardList = FXCollections.observableArrayList();
+	private ObservableList<UserEntry> userData = FXCollections.observableArrayList();
 	
     //Earnings Graphs
     private XYChart.Series<String, Number> monthlyEarningsSeries = new XYChart.Series<>();
@@ -199,6 +203,9 @@ public class FrontendDriver extends Application {
     	
     	setupSurveyTableColumns();
     	surveyTable.setItems(surveyData);
+    	
+    	setupUserTableColumns();
+    	userTable.setItems(userData);
     	
     	setupRewardsTableColumns();
     	rewardsTable.setItems(rewardList);
@@ -801,6 +808,142 @@ public class FrontendDriver extends Application {
         commentsCol.setCellValueFactory(cellData -> cellData.getValue().getComments());
 
         surveyTable.getColumns().addAll(submittedDateTimeCol, nameCol, emailCol, tierCol, surveyCol, commentsCol);
+    }
+    
+    private void parseUserCSV(File file) {
+    	userData.clear();
+        
+    	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            String header = reader.readLine();
+
+            if (header == null) {
+                showAlert("Error", "The file is empty.");
+            }
+
+            // Expected column headers (first few are enough to identify it as an earnings file)
+            String[] expectedHeaders = {
+            		"User ID","First Name","Last Name","Email","Active?","Tier",
+            		"Pledge ($)","Address Name","Address Line 1","Address Line 2",
+            		"City","State","ZIP Code","Country","Gender","Age Range","Education Level",
+            		"Income Range","Raffle Eligible" 																			
+            };
+
+            // Normalize and split header (handle comma or tab)
+            String[] actualHeaders = header.toLowerCase().split("\t|,");
+
+            for (String expected : expectedHeaders) {
+                boolean found = Arrays.stream(actualHeaders)
+                        .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
+                if (!found) {
+                    showAlert("Invalid File", "This doesn't appear to be a User CSV.");
+                }
+            }
+
+            while ((line = reader.readLine()) != null) {
+                String[] tokens = line.split("\t|,"); // handles tab- or comma-separated
+
+               
+                UserEntry entry = new UserEntry(
+                        new SimpleStringProperty(tokens[0].trim()),
+                        new SimpleStringProperty(tokens[1].trim()),
+                        new SimpleStringProperty(tokens[2].trim()),
+                        new SimpleStringProperty(tokens[3].trim()),
+                        new SimpleStringProperty(tokens[4].trim()),
+                        new SimpleStringProperty(tokens[5].trim()),
+                        new SimpleStringProperty(tokens[6].trim()),
+                        new SimpleStringProperty(tokens[7].trim()),
+                        new SimpleStringProperty(tokens[8].trim()),
+                        new SimpleStringProperty(tokens[9].trim()),
+                        new SimpleStringProperty(tokens[10].trim()),
+                        new SimpleStringProperty(tokens[11].trim()),
+                        new SimpleStringProperty(tokens[12].trim()),
+                        new SimpleStringProperty(tokens[13].trim()),
+                        new SimpleStringProperty(tokens[14].trim()),
+                        new SimpleStringProperty(tokens[15].trim()),
+                        new SimpleStringProperty(tokens[16].trim()),
+                        new SimpleStringProperty(tokens[17].trim()),
+                        new SimpleStringProperty(tokens[18].trim())
+                );
+
+                userData.add(entry);
+            }
+            userTable.setItems(userData);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert("File Error", "Could not read the file.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Parsing Error", "There was an error while parsing the CSV.");
+        }
+    }
+    
+    @SuppressWarnings("unchecked")
+	private void setupUserTableColumns() {
+    	TableColumn<UserEntry, String> userIDCol = new TableColumn<>("User ID");
+        userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID());
+        
+        TableColumn<UserEntry, String> firstNameCol = new TableColumn<>("First Name");
+        firstNameCol.setCellValueFactory(cellData -> cellData.getValue().getFirstName());
+        
+        TableColumn<UserEntry, String> lastNameCol = new TableColumn<>("Last Name");
+        lastNameCol.setCellValueFactory(cellData -> cellData.getValue().getLastName());
+        
+        TableColumn<UserEntry, String> emailCol = new TableColumn<>("Email");
+        emailCol.setCellValueFactory(cellData -> cellData.getValue().getEmail());
+        
+        TableColumn<UserEntry, String> activeCol = new TableColumn<>("Active?");
+        activeCol.setCellValueFactory(cellData -> cellData.getValue().getActive());
+        
+        TableColumn<UserEntry, String> tierCol = new TableColumn<>("Tier");
+        tierCol.setCellValueFactory(cellData -> cellData.getValue().getTier());
+        
+        TableColumn<UserEntry, String> pledgeCol = new TableColumn<>("Pledge");
+        pledgeCol.setCellValueFactory(cellData -> cellData.getValue().getPledge());
+        
+        TableColumn<UserEntry, String> addressNameCol = new TableColumn<>("Address Name");
+        addressNameCol.setCellValueFactory(cellData -> cellData.getValue().getAddressName());
+        
+        TableColumn<UserEntry, String> addressLine1Col = new TableColumn<>("Address Line 1");
+        addressLine1Col.setCellValueFactory(cellData -> cellData.getValue().getAddressLine1());
+        
+        TableColumn<UserEntry, String> addressLine2Col = new TableColumn<>("Address Line 2");
+        addressLine2Col.setCellValueFactory(cellData -> cellData.getValue().getAddressLine2());
+        
+        TableColumn<UserEntry, String> cityCol = new TableColumn<>("City");
+        cityCol.setCellValueFactory(cellData -> cellData.getValue().getCity());
+        
+        TableColumn<UserEntry, String> stateCol = new TableColumn<>("State");
+        stateCol.setCellValueFactory(cellData -> cellData.getValue().getState());
+        
+        TableColumn<UserEntry, String> zipCodeCol = new TableColumn<>("Zip Code");
+        zipCodeCol.setCellValueFactory(cellData -> cellData.getValue().getZipCode());
+        
+        TableColumn<UserEntry, String> countryCol = new TableColumn<>("Country");
+        countryCol.setCellValueFactory(cellData -> cellData.getValue().getCountry());
+        
+        TableColumn<UserEntry, String> genderCol = new TableColumn<>("Gender");
+        genderCol.setCellValueFactory(cellData -> cellData.getValue().getGender());
+        
+        TableColumn<UserEntry, String> ageRangeCol = new TableColumn<>("Age Range");
+        ageRangeCol.setCellValueFactory(cellData -> cellData.getValue().getAgeRange());
+        
+        TableColumn<UserEntry, String> educationCol = new TableColumn<>("Education Level");
+        educationCol.setCellValueFactory(cellData -> cellData.getValue().getEducationLevel());
+        
+        TableColumn<UserEntry, String> incomeRangeCol = new TableColumn<>("Income Range");
+        incomeRangeCol.setCellValueFactory(cellData -> cellData.getValue().getIncomeRange());
+        
+        TableColumn<UserEntry, String> raffleEligibleCol = new TableColumn<>("Raffle Eligible");
+        raffleEligibleCol.setCellValueFactory(cellData -> cellData.getValue().getRaffleEligible());
+        
+        ObservableList<TableColumn<UserEntry, String>> columns = FXCollections.observableArrayList();
+        columns.addAll(userIDCol,firstNameCol, lastNameCol, emailCol, activeCol, tierCol, pledgeCol,
+        		addressNameCol, addressLine1Col, addressLine2Col, cityCol, stateCol, zipCodeCol,
+        		countryCol,genderCol, ageRangeCol, educationCol, incomeRangeCol, raffleEligibleCol);
+
+        userTable.getColumns().addAll(columns);
     }
 
     private void showAlert(String title, String message) {
