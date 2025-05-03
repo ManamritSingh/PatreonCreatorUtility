@@ -36,6 +36,8 @@ public class FrontendDriver extends Application {
     private final TabPane tabPane = new TabPane();
     private final VBox revenueChartBox = new VBox();
     private final VBox campaignChartBox = new VBox();
+    private final VBox retentionChartBox = new VBox();
+    private final VBox demographicChartBox = new VBox();
 
     private Stage window;
 
@@ -148,10 +150,10 @@ public class FrontendDriver extends Application {
     // Tab Initialization
     // ----------------------------
     private void initializeTabs() {
-        addTab("Revenue",new VBox());
-        addTab("Retention",new VBox());
-        addTab("Demographics",new VBox());
-        addTab("Campaign Activity",new VBox());
+        addTab("Revenue",revenueChartBox);
+        addTab("Retention",retentionChartBox);
+        addTab("Demographics",demographicChartBox);
+        addTab("Campaign Activity",campaignChartBox);
     }
 
     private void addTab(String title, Node contents) {
@@ -343,7 +345,6 @@ public class FrontendDriver extends Application {
         }
     }
 
-
     // ----------------------------
     // Toolbar Logic
     // ----------------------------
@@ -415,15 +416,6 @@ public class FrontendDriver extends Application {
             	break;
         }
     }
-
-    private Tab getTabByName(String name) {
-        for (Tab tab : tabPane.getTabs()) {
-            if (tab.getText().equals(name)) {
-                return tab;
-            }
-        }
-        return null;
-    }
     
     private void openFile() {
     	try{
@@ -449,7 +441,6 @@ public class FrontendDriver extends Application {
                     switch (type) {
                         case "Earnings":
                             parseEarningsCSV(file);
-                            targetTab = getTabByName("Revenue");
                             monthlyEarningsSeries = buildMonthlyEarningsSeries();
                             yearlyEarningsSeries = buildYearlyEarningsSeries();
 
@@ -457,11 +448,9 @@ public class FrontendDriver extends Application {
                             yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
 
                             revenueChartBox.getChildren().setAll(monthlyEarningsChart);
-                            chartBox = revenueChartBox;
                             break;
                         case "Posts":
                             parsePostsCSV(file);
-                            targetTab = getTabByName("Campaign Activity");
 
                             CategoryAxis x = new CategoryAxis();
                             x.setLabel("Post Titles");
@@ -473,18 +462,27 @@ public class FrontendDriver extends Application {
                             postSBC.setTitle("Post Activity");
 
                             campaignChartBox.getChildren().setAll(postSBC);
-                            chartBox = campaignChartBox;
                             break;
                         case "Surveys":
                             parseSurveysCSV(file);
-                            targetTab = getTabByName("Retention"); // or "Demographics" if you prefer
-                            break;
-                    }
+                            
+                            Map<String, Integer> choiceCounts = new HashMap<>();
+                            
+                            for (SurveyEntry entry : surveyData) {
+                                String choice = entry.getSurvey().get();
+                                choiceCounts.put(choice, choiceCounts.getOrDefault(choice, 0) + 1);
+                            }
 
-                    if (targetTab != null && chartBox!=null) {
-                        VBox tabContent = (VBox) targetTab.getContent();
-                        tabContent.getChildren().clear();
-                        tabContent.getChildren().add(chartBox); 
+                            PieChart surveyPieChart = createPieChart(choiceCounts);
+                            surveyPieChart.setTitle("Surveys Completeds");
+                            
+                            demographicChartBox.getChildren().setAll(surveyPieChart);
+                            break;
+                        case "User":
+                        	parseUserCSV(file);
+                        	
+                        	//demographicChartBox.getChildren().setAll(null);
+                        	break;
                     }
                 }
             }
@@ -749,7 +747,7 @@ public class FrontendDriver extends Application {
             };
 
             // Normalize and split header (handle comma or tab)
-            String[] actualHeaders = header.toLowerCase().split("\t|,");
+            String[] actualHeaders = header.toLowerCase().split(",",-1);
 
             for (String expected : expectedHeaders) {
                 boolean found = Arrays.stream(actualHeaders)
@@ -761,10 +759,7 @@ public class FrontendDriver extends Application {
 
 
             while ((line = reader.readLine()) != null) {
-                String[] tokens = line.split("\t|,"); // handles tab- or comma-separated
-
-                if (tokens.length < 7) continue; // Ensure the line is valid
-
+                String[] tokens = line.split(",",-1); 
                 SurveyEntry entry = new SurveyEntry(
                         new SimpleStringProperty(tokens[0].trim()),
                         new SimpleStringProperty(tokens[1].trim()),
@@ -1045,6 +1040,19 @@ public class FrontendDriver extends Application {
             }
             postSBC.getData().add(series);
         }
+    }
+    
+    private PieChart createPieChart(Map<String, Integer> data) {
+    	ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList();
+
+    	for (Map.Entry<String, Integer> entry : data.entrySet()) {
+    		String labelWithCount = entry.getKey() + " (" + entry.getValue() + ")";
+    	    pieChartData.add(new PieChart.Data(labelWithCount, entry.getValue()));
+    	}
+    	
+    	PieChart pieChart = new PieChart(pieChartData);
+    	return pieChart;
+
     }
 
 }
