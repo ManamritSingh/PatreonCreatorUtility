@@ -12,7 +12,6 @@ import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
-import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -20,7 +19,6 @@ import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.Pane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
@@ -202,7 +200,6 @@ public class FrontendDriver extends Application {
         tabPane.getSelectionModel().select(newTab);
     }
     
-    @SuppressWarnings("deprecation")
 	private void openRewardsTab() {
         for (Tab tab : tabPane.getTabs()) {
             if (tab.getText().equals("Email Rewards")) {
@@ -251,8 +248,6 @@ public class FrontendDriver extends Application {
         tabPane.getTabs().add(rewardsTab);
         tabPane.getSelectionModel().select(rewardsTab);
     }
-
-
  
     private void initializeTables() {
     	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
@@ -333,7 +328,6 @@ public class FrontendDriver extends Application {
                 alert.showAndWait();
                 return;
             }
-
 
             EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients);
             rewardList.add(reward);
@@ -551,9 +545,8 @@ public class FrontendDriver extends Application {
 
                             case "User":
                                 parseUserCSV(file);
-                                // Here you will add the user data to the demographic chart box
-                                //HBox userData = createUserDataChart();
-                                //demographicChartBox.getChildren().setAll(userData); // Add to demographic chart box
+                                HBox genderDist = createGenderDistributionChart();
+                                demographicChartBox.getChildren().setAll(genderDist); // Add to demographic chart box
                                 break;
                         }
                     });
@@ -1255,6 +1248,91 @@ public class FrontendDriver extends Application {
 
         window.getChildren().addAll(controlBox, chartPane);
         return window;
+    }
+    public HBox createGenderDistributionChart() {
+        // Axes
+        CategoryAxis xAxis = new CategoryAxis();
+        xAxis.setLabel("Gender");
+
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel("Patron Count");
+
+        // Chart
+        BarChart<String, Number> chart = new BarChart<>(xAxis, yAxis);
+        chart.setTitle("Gender Distribution");
+
+        // Button Bar
+        VBox buttonBar = new VBox(10);
+        buttonBar.setPadding(new Insets(10));
+        buttonBar.setAlignment(Pos.CENTER);
+
+        Button allButton = new Button("All");
+        Button tier1Button = new Button("Tier 1");
+        Button tier2Button = new Button("Tier 2");
+        Button tier3Button = new Button("Tier 3");
+
+        buttonBar.getChildren().addAll(allButton, tier1Button, tier2Button, tier3Button);
+
+        // Set chart width behavior
+        chart.setAnimated(false);
+        chart.setCategoryGap(20);
+        chart.setBarGap(5);
+        
+        Map<String, Map<String, Integer>> dataByTier = new HashMap<>();
+
+        for (UserEntry user : userData) {
+        	String tier = "Tier " + user.getTier().get().trim();
+            String gender = user.getGender().get(); 
+
+            dataByTier.putIfAbsent(tier, new HashMap<>());
+            Map<String, Integer> genderMap = dataByTier.get(tier);
+
+            genderMap.put(gender, genderMap.getOrDefault(gender, 0) + 1);
+        }
+
+        // Update chart data based on selection
+        Runnable updateChart = () -> updateGenderChart(chart, dataByTier, "All");  // Default view
+        allButton.setOnAction(e -> updateGenderChart(chart, dataByTier, "All"));
+        tier1Button.setOnAction(e -> updateGenderChart(chart, dataByTier, "Tier 1"));
+        tier2Button.setOnAction(e -> updateGenderChart(chart, dataByTier, "Tier 2"));
+        tier3Button.setOnAction(e -> updateGenderChart(chart, dataByTier, "Tier 3"));
+
+        updateChart.run(); // Initial chart
+
+        HBox.setHgrow(chart, Priority.ALWAYS);
+        chart.setMaxWidth(Double.MAX_VALUE);
+
+        HBox layout = new HBox(10, buttonBar, chart);
+        layout.setPadding(new Insets(10));
+        return layout;
+    }
+
+    private void updateGenderChart(BarChart<String, Number> chart, Map<String, Map<String, Integer>> data, String tier) {
+        chart.getData().clear();
+
+        Map<String, Integer> counts = new HashMap<>();
+        counts.put("Male", 0);
+        counts.put("Female", 0);
+        counts.put("Non-Binary", 0);
+
+        if (tier.equals("All")) {
+            for (Map<String, Integer> genderMap : data.values()) {
+                for (String gender : counts.keySet()) {
+                    counts.put(gender, counts.get(gender) + genderMap.getOrDefault(gender, 0));
+                }
+            }
+        } else if (data.containsKey(tier)) {
+            counts = new HashMap<>(data.get(tier)); // Only that tier
+        }
+
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        series.setName(tier);
+
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            series.getData().add(new XYChart.Data<>(entry.getKey(), entry.getValue()));
+        }
+
+        chart.getData().add(series);
     }
 
 }
