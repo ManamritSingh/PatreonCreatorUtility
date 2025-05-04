@@ -12,7 +12,7 @@ import java.util.List;
 public class EmailService{
 	@Autowired
 	private JavaMailSender mailSender;
-	
+
 	public void sendEmailToAll(List<String> recipients, String messageBody){
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setFrom("introtojava2025@gmail.com");
@@ -24,4 +24,14 @@ public class EmailService{
 			mailSender.send(message);
 		}
 	}
+
+    public void sendEmailToOne(String recipient, String messageBody) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("introtojava2025@gmail.com");
+        message.setTo(recipient);
+        message.setSubject("Test");
+        message.setText(messageBody);
+        mailSender.send(message);
+    }
+
 }

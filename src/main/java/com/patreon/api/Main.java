@@ -73,7 +73,7 @@ public class Main {
         System.out.println("📢 Campaign: " + campaign.name);
         System.out.println("🎯 Tiers:");
         for (Tier tier : campaign.tiers) {
-            System.out.printf("- %s (%d cents)\n", tier.title, tier.amountCents);
+            System.out.printf("- %s (%d cents)\n", tier.getTitle(), tier.getAmountCents());
         }
 
         /* Test code for member-tier data */
@@ -84,18 +84,18 @@ public class Main {
         // Compute earnings per tier
         Map<String, Integer> earningsByTier = new HashMap<>();
         for (Member member : members) {
-            if (member.tierId != null || member.isFollower)
+            if (member.getTierId() != null || member.isFollower())
                 continue;
-            earningsByTier.put(member.tierId,
-                    earningsByTier.getOrDefault(member.tierId, 0) + member.pledgeAmountCents
+            earningsByTier.put(member.getTierId(),
+                    earningsByTier.getOrDefault(member.getTierId(), 0) + member.getPledgeAmountCents()
             );
         }
 
         // Display earnings by tier name
         System.out.println("💰 Earnings by Tier:");
         for (Tier tier : campaign.tiers) {
-            int total = earningsByTier.getOrDefault(tier.id, 0);
-            System.out.printf("- %s: $%.2f\n", tier.title, total / 100.0);
+            int total = earningsByTier.getOrDefault(tier.getId(), 0);
+            System.out.printf("- %s: $%.2f\n", tier.getTitle(), total / 100.0);
         }
 
         // Group members by tier
@@ -103,28 +103,28 @@ public class Main {
         Map<String, Integer> tierEarnings = new HashMap<>();
 
         for (Member member : members) {
-            if (member.isActive && member.tierId != null) {
+            if (member.isActive() && member.getTierId() != null) {
                 // Patron count
                 tierPatronCounts.put(
-                        member.tierId,
-                        tierPatronCounts.getOrDefault(member.tierId, 0) + 1
+                        member.getTierId(),
+                        tierPatronCounts.getOrDefault(member.getTierId(), 0) + 1
                 );
 
                 // Revenue
                 tierEarnings.put(
-                        member.tierId,
-                        tierEarnings.getOrDefault(member.tierId, 0) + member.pledgeAmountCents
+                        member.getTierId(),
+                        tierEarnings.getOrDefault(member.getTierId(), 0) + member.getPledgeAmountCents()
                 );
             }
         }
 
         System.out.println("\n📊 Tier-wise Patron Count and Revenue:");
         for (Tier tier : campaign.tiers) {
-            int count = tierPatronCounts.getOrDefault(tier.id, 0);
-            int earningsCents = tierEarnings.getOrDefault(tier.id, 0);
+            int count = tierPatronCounts.getOrDefault(tier.getId(), 0);
+            int earningsCents = tierEarnings.getOrDefault(tier.getId(), 0);
             double earningsDollars = earningsCents / 100.0;
 
-            System.out.printf("- %s: %d patrons, $%.2f total earnings\n", tier.title, count, earningsDollars);
+            System.out.printf("- %s: %d patrons, $%.2f total earnings\n", tier.getTitle(), count, earningsDollars);
         }
 
     }

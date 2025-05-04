@@ -46,15 +46,15 @@ public class MemberService {
 
         for (JsonNode node : dataArray) {
             Member m = new Member();
-            m.id = node.get("id").asText();
+            m.setId(node.get("id").asText());
 
             JsonNode pledgeNode = node.get("attributes").get("pledge_amount_cents");
-            m.pledgeAmountCents = (pledgeNode != null && !pledgeNode.isNull())
+            m.setPledgeAmountCents((pledgeNode != null && !pledgeNode.isNull())
                     ? pledgeNode.asInt()
-                    : 0;
+                    : 0);
 
 
-            m.isActive = !node.get("attributes").get("is_follower").asBoolean();
+            m.setActive(!node.get("attributes").get("is_follower").asBoolean());
 
             // Extract first tier ID (if any)
             JsonNode relationships = node.get("relationships");
@@ -63,7 +63,7 @@ public class MemberService {
                 if (entitled != null) {
                     JsonNode entitledTiers = entitled.get("data");
                     if (entitledTiers != null && entitledTiers.isArray() && entitledTiers.size() > 0) {
-                        m.tierId = entitledTiers.get(0).get("id").asText();
+                        m.setTierId(entitledTiers.get(0).get("id").asText());
                     }
                 }
             }

@@ -55,9 +55,9 @@ public class CampaignService {
             for (JsonNode node : included) {
                 if (node.get("type").asText().equals("tier")) {
                     Tier tier = new Tier();
-                    tier.id = node.get("id").asText();
-                    tier.title = node.get("attributes").get("title").asText();
-                    tier.amountCents = node.get("attributes").get("amount_cents").asInt();
+                    tier.setId(node.get("id").asText());
+                    tier.setTitle(node.get("attributes").get("title").asText());
+                    tier.setAmountCents(node.get("attributes").get("amount_cents").asInt());
                     campaign.tiers.add(tier);
                 }
             }

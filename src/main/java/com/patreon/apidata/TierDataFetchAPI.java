@@ -49,14 +49,14 @@ public class TierDataFetchAPI {
             Map<String, Integer> tierEarnings = new HashMap<>();
 
             for (Member member : members) {
-                if (member.isActive && member.tierId != null) {
+                if (member.isActive() && member.getTierId() != null) {
                     tierPatronCounts.put(
-                            member.tierId,
-                            tierPatronCounts.getOrDefault(member.tierId, 0) + 1
+                            member.getTierId(),
+                            tierPatronCounts.getOrDefault(member.getTierId(), 0) + 1
                     );
                     tierEarnings.put(
-                            member.tierId,
-                            tierEarnings.getOrDefault(member.tierId, 0) + member.pledgeAmountCents
+                            member.getTierId(),
+                            tierEarnings.getOrDefault(member.getTierId(), 0) + member.getPledgeAmountCents()
                     );
                 }
             }
@@ -64,11 +64,11 @@ public class TierDataFetchAPI {
             // Prepare list of TierSnapshots for CSV
             List<TierSnapshot> snapshots = new ArrayList<>();
             for (Tier tier : tiers) {
-                int patrons = tierPatronCounts.getOrDefault(tier.id, 0);
-                double revenue = tierEarnings.getOrDefault(tier.id, 0) / 100.0;
+                int patrons = tierPatronCounts.getOrDefault(tier.getId(), 0);
+                double revenue = tierEarnings.getOrDefault(tier.getId(), 0) / 100.0;
 
                 snapshots.add(new TierSnapshot(
-                        (tier.title == null || tier.title.isBlank()) ? "Untitled Tier" : tier.title,
+                        (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle(),
                         patrons,
                         revenue
                 ));
