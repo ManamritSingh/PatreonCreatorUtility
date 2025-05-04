@@ -122,6 +122,7 @@ public class FrontendDriver extends Application {
         MenuItem viewPostFile = new MenuItem("Posts File");
         MenuItem viewEarningsFile = new MenuItem("Earnings File");
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
+        MenuItem viewUserFile = new MenuItem("User File");
 
         
         viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
@@ -131,17 +132,16 @@ public class FrontendDriver extends Application {
         viewPostFile.setOnAction(e -> openDataTab("Posts File",postTable));
         viewEarningsFile.setOnAction(e -> openDataTab("Earnings File",earningTable));
         viewSurveyFile.setOnAction(e -> openDataTab("Surveys File",surveyTable));
+        viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
-
-
 
         //Open CSV Files
         menuOpen.setOnAction(e -> openFile());
 
         viewMenu.getItems().addAll(charts,dataFiles);
         charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
-        dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile);
+        dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile, viewUserFile);
         fileMenu.getItems().addAll(menuOpen, viewMenu, menuSave, emailRewards);
         menuBar.getMenus().add(fileMenu);
 
@@ -546,7 +546,9 @@ public class FrontendDriver extends Application {
                             case "User":
                                 parseUserCSV(file);
                                 HBox genderDist = createGenderDistributionChart();
-                                demographicChartBox.getChildren().setAll(genderDist); // Add to demographic chart box
+                                HBox behavior = createIncomeVsPledgeScatterChart();
+                                HBox educationPie = createEducationPieChart();
+                                demographicChartBox.getChildren().setAll(genderDist, behavior, educationPie); 
                                 break;
                         }
                     });
@@ -557,7 +559,6 @@ public class FrontendDriver extends Application {
             ex.printStackTrace();
             System.out.println("Error opening file: " + ex.getMessage());}
     }
-
 
     // ----------------------------
     // Parsing Files
@@ -1249,6 +1250,7 @@ public class FrontendDriver extends Application {
         window.getChildren().addAll(controlBox, chartPane);
         return window;
     }
+    
     public HBox createGenderDistributionChart() {
         // Axes
         CategoryAxis xAxis = new CategoryAxis();
@@ -1333,6 +1335,134 @@ public class FrontendDriver extends Application {
         }
 
         chart.getData().add(series);
+    }
+    
+    public HBox createIncomeVsPledgeScatterChart() {
+        NumberAxis xAxis = new NumberAxis();
+        xAxis.setLabel("Income ($)");
+
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel("Pledge ($)");
+
+        ScatterChart<Number, Number> scatterChart = new ScatterChart<>(xAxis, yAxis);
+        scatterChart.setTitle("Income vs Pledge");
+
+        // Map to group users by tier
+        Map<String, XYChart.Series<Number, Number>> tierSeriesMap = new HashMap<>();
+
+        // Create a random generator for jitter
+        Random random = new Random();
+        double jitterAmount = 1.5; // adjust this to control spacing
+
+        for (UserEntry user : userData) {
+            double incomeMid = getMidpoint(user.getIncomeRange().get());
+            double pledge = Double.parseDouble(user.getPledge().get());
+            String tier = user.getTier().get(); // Assuming this returns "1", "2", "3", etc.
+
+            // Apply jitter to income and pledge
+            incomeMid += (random.nextDouble() - 0.5) * jitterAmount;
+            pledge += (random.nextDouble() - 0.5) * jitterAmount;
+
+            // Create or get the appropriate series
+            XYChart.Series<Number, Number> series = tierSeriesMap.computeIfAbsent(tier, k -> {
+                XYChart.Series<Number, Number> s = new XYChart.Series<>();
+                s.setName("Tier " + k);
+                return s;
+            });
+
+            XYChart.Data<Number, Number> dataPoint = new XYChart.Data<>(incomeMid, pledge);
+
+            // Tooltip with relevant info
+            Tooltip tooltip = new Tooltip(
+                "Income: " + user.getIncomeRange().get() + "\n" +
+                "Pledge: $" + user.getPledge().get()
+            );
+
+            // Add the data point and install tooltip after layout
+            series.getData().add(dataPoint);
+            dataPoint.nodeProperty().addListener((obs, oldNode, newNode) -> {
+                if (newNode != null) {
+                    Tooltip.install(newNode, tooltip);
+                }
+            });
+        }
+
+        scatterChart.getData().addAll(tierSeriesMap.values());
+
+        HBox.setHgrow(scatterChart, Priority.ALWAYS);
+        scatterChart.setMaxWidth(Double.MAX_VALUE);
+
+        HBox layout = new HBox(scatterChart);
+        layout.setPadding(new Insets(10));
+        return layout;
+    }
+
+    private double getMidpoint(String range) {
+        try {
+            range = range.replaceAll("[$kK,]", "") // Remove symbols
+                         .replaceAll("\\s+", ""); // Remove spaces
+
+            String[] parts = range.split("-");
+            if (parts.length == 2) {
+                double low = Double.parseDouble(parts[0]);
+                double high = Double.parseDouble(parts[1]);
+                return (low + high) / 2;
+            } else {
+                return Double.parseDouble(range); // If only one number
+            }
+        } catch (Exception e) {
+            return 0; // Default fallback
+        }
+    }
+
+    public HBox createEducationPieChart() {
+        PieChart pieChart = new PieChart();
+        pieChart.setTitle("Education Level Breakdown");
+
+        VBox buttonBar = new VBox(10);
+        buttonBar.setAlignment(Pos.CENTER);
+        buttonBar.setPadding(new Insets(10));
+
+        Button allButton = new Button("All");
+        Button tier1Button = new Button("Tier 1");
+        Button tier2Button = new Button("Tier 2");
+        Button tier3Button = new Button("Tier 3");
+
+        buttonBar.getChildren().addAll(allButton, tier1Button, tier2Button, tier3Button);
+
+        // Action logic
+        allButton.setOnAction(e -> updateEducationPieChart(pieChart, "All"));
+        tier1Button.setOnAction(e -> updateEducationPieChart(pieChart, "1"));
+        tier2Button.setOnAction(e -> updateEducationPieChart(pieChart, "2"));
+        tier3Button.setOnAction(e -> updateEducationPieChart(pieChart, "3"));
+
+        updateEducationPieChart(pieChart, "All"); // Initial state
+
+        HBox layout = new HBox(10, buttonBar, pieChart);
+        layout.setPadding(new Insets(10));
+        layout.setAlignment(Pos.CENTER);
+        return layout;
+    }
+
+    private void updateEducationPieChart(PieChart chart, String tierFilter) {
+        Map<String, Integer> educationCounts = new HashMap<>();
+
+        for (UserEntry user : userData) {
+            String tier = user.getTier().get().trim();
+            String education = user.getEducationLevel().get().trim();
+
+            if (!tierFilter.equals("All") && !tier.equals(tierFilter)) continue;
+
+            educationCounts.put(education, educationCounts.getOrDefault(education, 0) + 1);
+        }
+
+        ObservableList<PieChart.Data> pieData = FXCollections.observableArrayList();
+
+        for (Map.Entry<String, Integer> entry : educationCounts.entrySet()) {
+            pieData.add(new PieChart.Data(entry.getKey(), entry.getValue()));
+        }
+
+        chart.setData(pieData);
     }
 
 }
