@@ -18,20 +18,20 @@ public class MockDataGenerator {
 
         for (Tier tier : tiers) {
             int patrons;
-            if (tier.amountCents == 0) {
+            if (tier.getAmountCents() == 0) {
                 patrons = random.nextInt(51) + 50;
-            } else if (tier.amountCents <= 200) {
+            } else if (tier.getAmountCents() <= 200) {
                 patrons = random.nextInt(31) + 20;
-            } else if (tier.amountCents <= 500) {
+            } else if (tier.getAmountCents() <= 500) {
                 patrons = random.nextInt(21) + 10;
             } else {
                 patrons = random.nextInt(11) + 5;
             }
 
-            double revenue = patrons * (tier.amountCents / 100.0);
+            double revenue = patrons * (tier.getAmountCents() / 100.0);
 
             fakeData.add(new TierSnapshot(
-                    (tier.title == null || tier.title.isBlank()) ? "Untitled Tier" : tier.title,
+                    (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle(),
                     patrons,
                     revenue
             ));
