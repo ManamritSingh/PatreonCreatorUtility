@@ -7,6 +7,7 @@ import com.patreon.frontend.models.SurveyEntry;
 import com.patreon.frontend.models.UserEntry;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.*;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -19,6 +20,9 @@ import javafx.scene.chart.*;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Modality;
@@ -32,7 +36,7 @@ import java.util.*;
 
 public class FrontendDriver extends Application {
 
-    private final ToolBar toolBar = new ToolBar();
+    //private final ToolBar toolBar = new ToolBar();
     private final TabPane tabPane = new TabPane();
     private final VBox revenueChartBox = new VBox();
     private final VBox campaignChartBox = new VBox();
@@ -73,24 +77,24 @@ public class FrontendDriver extends Application {
         window.setTitle("Patreon Creator Toolkit");
 
         // Layout setup
-        toolBar.setOrientation(Orientation.VERTICAL);
+        //toolBar.setOrientation(Orientation.VERTICAL);
         BorderPane layout = new BorderPane();
         layout.setTop(createMenuBar());
-        layout.setLeft(toolBar);
+        //layout.setLeft(toolBar);
         layout.setCenter(tabPane);
 
         // Initialize tabs,tables, and toolbars
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
-        updateToolBar(tabPane.getTabs().get(0).getText());
+        //updateToolBar(tabPane.getTabs().get(0).getText());
 
         // Tab change listener to update toolbar
-        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
+        /*tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
             if (newTab != null) {
                 updateToolBar(newTab.getText());
             }
-        });
+        });*/
 
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
@@ -122,15 +126,15 @@ public class FrontendDriver extends Application {
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
 
         
-        viewRevenue.setOnAction(e -> openTab("Revenue"));
-        viewRetention.setOnAction(e -> openTab("Retention"));
-        viewDemographics.setOnAction(e -> openTab("Demographics"));
-        viewCampaign.setOnAction(e -> openTab("Campaign Activity"));
-        viewPostFile.setOnAction(e -> openTab("Posts File"));
-        viewEarningsFile.setOnAction(e -> openTab("Earnings File"));
-        viewSurveyFile.setOnAction(e -> openTab("Surveys File"));
+        viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
+        viewRetention.setOnAction(e -> openTab("Retention",retentionChartBox));
+        viewDemographics.setOnAction(e -> openTab("Demographics",demographicChartBox));
+        viewCampaign.setOnAction(e -> openTab("Campaign Activity",campaignChartBox));
+        viewPostFile.setOnAction(e -> openDataTab("Posts File",postTable));
+        viewEarningsFile.setOnAction(e -> openDataTab("Earnings File",earningTable));
+        viewSurveyFile.setOnAction(e -> openDataTab("Surveys File",surveyTable));
         
-        emailRewards.setOnAction(e -> openTab("Email Rewards"));
+        emailRewards.setOnAction(e -> openRewardsTab());
 
 
 
@@ -150,51 +154,106 @@ public class FrontendDriver extends Application {
     // Tab Initialization
     // ----------------------------
     private void initializeTabs() {
-        addTab("Revenue",revenueChartBox);
-        addTab("Retention",retentionChartBox);
-        addTab("Demographics",demographicChartBox);
-        addTab("Campaign Activity",campaignChartBox);
+    	openTab("Revenue", revenueChartBox);
+        openTab("Retention", retentionChartBox);
+        openTab("Demographics", demographicChartBox);
+        openTab("Campaign Activity", campaignChartBox);
     }
 
-    private void addTab(String title, Node contents) {
-        Tab tab = new Tab(title,contents);
-        tabPane.getTabs().add(tab);
-    }
-
-    private void openTab(String section) {
-        // First, check if the tab already exists
-        for (Tab tab : tabPane.getTabs()) {
+    private void openTab(String section, VBox chartBox) {
+    	for (Tab tab : tabPane.getTabs()) {
             if (tab.getText().equals(section)) {
                 tabPane.getSelectionModel().select(tab);
-                return; // Return if the tab already exists
+                return;
             }
         }
 
-        // If the tab doesn't exist, create a new one
         Tab newTab = new Tab(section);
         newTab.setClosable(true);
 
-        VBox tabContent = new VBox(); // You can add your TableView and graphs here
+        ScrollPane scrollPane = new ScrollPane(chartBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPadding(new Insets(10));
 
-        // Depending on the section (file type), we'll populate the content of the tab
-        if (section.equals("Earnings File") && earningTable != null) {
-            tabContent.getChildren().add(earningTable); // Add the Earnings table
-            // You can also add any relevant graph for Earnings data here
-        } else if (section.equals("Posts File") && postTable != null) {
-            tabContent.getChildren().add(postTable); // Add the Posts table
-            // You can also add any relevant graph for Posts data here
-        } else if (section.equals("Surveys File") && surveyTable != null) {
-            tabContent.getChildren().add(surveyTable); // Add the Surveys table
-            // You can also add any relevant graph for Surveys data here
-        } else if (section.equals("Email Rewards")) {
-        	tabContent.getChildren().add(rewardsTable);
-        }
-
-        newTab.setContent(tabContent); // Set the content of the new tab
-        tabPane.getTabs().add(newTab); // Add the new tab to the tab pane
-        tabPane.getSelectionModel().select(newTab); // Select the new tab
+        newTab.setContent(scrollPane);
+        tabPane.getTabs().add(newTab);
+        tabPane.getSelectionModel().select(newTab);
     }
     
+    private void openDataTab(String section, TableView<?> table) {
+        for (Tab tab : tabPane.getTabs()) {
+            if (tab.getText().equals(section)) {
+                tabPane.getSelectionModel().select(tab);
+                return;
+            }
+        }
+
+        VBox tabContent = new VBox(10);
+        tabContent.setPadding(new Insets(10));
+        tabContent.getChildren().add(table);
+
+        ScrollPane scrollPane = new ScrollPane(tabContent);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPadding(new Insets(10));
+
+        Tab newTab = new Tab(section, scrollPane);
+        newTab.setClosable(true);
+        tabPane.getTabs().add(newTab);
+        tabPane.getSelectionModel().select(newTab);
+    }
+    
+    @SuppressWarnings("deprecation")
+	private void openRewardsTab() {
+        for (Tab tab : tabPane.getTabs()) {
+            if (tab.getText().equals("Email Rewards")) {
+                tabPane.getSelectionModel().select(tab);
+                return;
+            }
+        }
+
+        // Left VBox with buttons
+        VBox buttonPanel = new VBox(10);
+        buttonPanel.setPadding(new Insets(10));
+        buttonPanel.setAlignment(Pos.TOP_LEFT);
+        buttonPanel.setMinWidth(100); // optional: fixed width
+
+        Button newButton = new Button("New");
+        Button deleteButton = new Button("Delete");
+
+        newButton.setOnAction(e -> newReward());
+        deleteButton.setOnAction(e -> deleteSelectedReward());
+
+        buttonPanel.getChildren().addAll(newButton, deleteButton);
+
+        // Right VBox with rewardsTable, set to grow
+        VBox tableContainer = new VBox(rewardsTable);
+        tableContainer.setPadding(new Insets(10));
+        tableContainer.setAlignment(Pos.TOP_LEFT);
+
+        // Make rewardsTable grow to fill width
+        rewardsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        VBox.setVgrow(rewardsTable, Priority.ALWAYS);
+
+        // HBox with buttons and table, make tableContainer grow
+        HBox contentBox = new HBox(20, buttonPanel, tableContainer);
+        contentBox.setPadding(new Insets(10));
+        HBox.setHgrow(tableContainer, Priority.ALWAYS); // allow right side to grow
+
+        // ScrollPane to wrap everything
+        ScrollPane scrollPane = new ScrollPane(contentBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setFitToHeight(true);
+        scrollPane.setPadding(new Insets(10));
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Tab rewardsTab = new Tab("Email Rewards", scrollPane);
+        rewardsTab.setClosable(true);
+        tabPane.getTabs().add(rewardsTab);
+        tabPane.getSelectionModel().select(rewardsTab);
+    }
+
+
+ 
     private void initializeTables() {
     	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
     	setupEarningTableColumns();
@@ -276,7 +335,7 @@ public class FrontendDriver extends Application {
             }
 
 
-            EmailReward reward = new EmailReward(subjectText, messageText, triggerText, recipients);
+            EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients);
             rewardList.add(reward);
             
             // Simulate saving logic
@@ -348,7 +407,7 @@ public class FrontendDriver extends Application {
     // ----------------------------
     // Toolbar Logic
     // ----------------------------
-    private void updateToolBar(String section) {
+    /*private void updateToolBar(String section) {
         toolBar.getItems().clear();
 
         switch (section) {
@@ -415,7 +474,7 @@ public class FrontendDriver extends Application {
             	toolBar.getItems().addAll(newRewardBtn, deleteRewardBtn);
             	break;
         }
-    }
+    }*/
     
     private void openFile() {
     	try{
@@ -425,7 +484,7 @@ public class FrontendDriver extends Application {
             File file = fileChooser.showOpenDialog(window);
 
             if (file != null) {
-                List<String> options = Arrays.asList("Earnings", "Posts", "Surveys");
+                List<String> options = Arrays.asList("Earnings", "Posts", "Surveys","User");
                 ChoiceDialog<String> dialog = new ChoiceDialog<>("Earnings", options);
                 dialog.setTitle("Select Data Type");
                 dialog.setHeaderText("What type of data is this?");
@@ -433,58 +492,73 @@ public class FrontendDriver extends Application {
 
                 Optional<String> result = dialog.showAndWait();
 
+                
                 if (result.isPresent()) {
                     String type = result.get();
-                    Tab targetTab = null;
-                    VBox chartBox = null;
+                    Platform.runLater(() -> { 
+                        VBox updatedCampaignBox = new VBox(20);  // For stacking post and survey charts
+                        updatedCampaignBox.setPadding(new Insets(10));
 
-                    switch (type) {
-                        case "Earnings":
-                            parseEarningsCSV(file);
-                            monthlyEarningsSeries = buildMonthlyEarningsSeries();
-                            yearlyEarningsSeries = buildYearlyEarningsSeries();
+                        switch (type) {
+                            case "Earnings":
+                                parseEarningsCSV(file);
+                                HBox monthlyYearlyEarnings = createMonthlyYearlyEarnings();
+                                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings); // Add to revenue chart box
+                                break;
 
-                            monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
-                            yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
+                            case "Posts":
+                                parsePostsCSV(file);
+                                HBox postActivity = createPostActivity();
+                                postActivity.setId("postChart");
 
-                            revenueChartBox.getChildren().setAll(monthlyEarningsChart);
-                            break;
-                        case "Posts":
-                            parsePostsCSV(file);
+                                // Remove the old post chart if it exists and add the new one
+                                updatedCampaignBox.getChildren().clear(); // Clear out the old contents
+                                
+                                // Add post chart to the top of the updatedCampaignBox
+                                updatedCampaignBox.getChildren().add(postActivity);
 
-                            CategoryAxis x = new CategoryAxis();
-                            x.setLabel("Post Titles");
+                                // Re-add all existing charts (Survey and others) that are not the post chart
+                                List<Node> existingNodes = new ArrayList<>(campaignChartBox.getChildren());
+                                for (Node node : existingNodes) {
+                                    if (!(node instanceof HBox) || !"postChart".equals(node.getId())) {
+                                        updatedCampaignBox.getChildren().add(node);
+                                    }
+                                }
 
-                            NumberAxis y = new NumberAxis();
-                            y.setLabel("Count");
+                                // Replace campaignChartBox contents with the updated stack (post + existing charts)
+                                campaignChartBox.getChildren().setAll(updatedCampaignBox.getChildren());
+                                break;
 
-                            postSBC = new StackedBarChart<>(x, y);
-                            postSBC.setTitle("Post Activity");
+                            case "Surveys":
+                                parseSurveysCSV(file);
+                                HBox surveyPie = createSurveyPieChart();
+                                surveyPie.setId("surveyChart"); // Tag this chart
 
-                            campaignChartBox.getChildren().setAll(postSBC);
-                            break;
-                        case "Surveys":
-                            parseSurveysCSV(file);
-                            
-                            Map<String, Integer> choiceCounts = new HashMap<>();
-                            
-                            for (SurveyEntry entry : surveyData) {
-                                String choice = entry.getSurvey().get();
-                                choiceCounts.put(choice, choiceCounts.getOrDefault(choice, 0) + 1);
-                            }
+                                // Ensure survey chart goes to the bottom of the updated stack
+                                updatedCampaignBox.getChildren().add(surveyPie);
 
-                            PieChart surveyPieChart = createPieChart(choiceCounts);
-                            surveyPieChart.setTitle("Surveys Completeds");
-                            
-                            demographicChartBox.getChildren().setAll(surveyPieChart);
-                            break;
-                        case "User":
-                        	parseUserCSV(file);
-                        	
-                        	//demographicChartBox.getChildren().setAll(null);
-                        	break;
-                    }
+                                // Re-add all existing charts (Post and others) that are not the survey chart
+                                List<Node> existingNodesSur = new ArrayList<>(campaignChartBox.getChildren());
+                                for (Node node : existingNodesSur) {
+                                    if (!(node instanceof HBox) || !"surveyChart".equals(node.getId())) {
+                                        updatedCampaignBox.getChildren().add(node);
+                                    }
+                                }
+
+                                // Replace campaignChartBox contents with the updated stack (post + survey + others)
+                                campaignChartBox.getChildren().setAll(updatedCampaignBox.getChildren());
+                                break;
+
+                            case "User":
+                                parseUserCSV(file);
+                                // Here you will add the user data to the demographic chart box
+                                //HBox userData = createUserDataChart();
+                                //demographicChartBox.getChildren().setAll(userData); // Add to demographic chart box
+                                break;
+                        }
+                    });
                 }
+
             }
         }catch (Exception ex) {
             ex.printStackTrace();
@@ -1053,6 +1127,134 @@ public class FrontendDriver extends Application {
     	PieChart pieChart = new PieChart(pieChartData);
     	return pieChart;
 
+    }
+    
+    private HBox createMonthlyYearlyEarnings() {
+    	HBox window = new HBox(10); // Add spacing between toggle and chart
+
+        // Create toggle buttons
+        RadioButton monthlyButton = new RadioButton("Monthly");
+        RadioButton yearlyButton = new RadioButton("Yearly");
+        ToggleGroup viewToggle = new ToggleGroup();
+        monthlyButton.setToggleGroup(viewToggle);
+        yearlyButton.setToggleGroup(viewToggle);
+        monthlyButton.setSelected(true); // Default view is monthly
+
+        VBox toggleBox = new VBox(10, monthlyButton, yearlyButton);
+        toggleBox.setAlignment(Pos.TOP_LEFT);
+        toggleBox.setPadding(new Insets(10));
+
+        // Build data series and charts
+        monthlyEarningsSeries = buildMonthlyEarningsSeries();
+        yearlyEarningsSeries = buildYearlyEarningsSeries();
+
+        monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
+        yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
+
+        // Wrap the chart in a Region to allow resizing
+        StackPane chartPane = new StackPane(monthlyEarningsChart);
+        chartPane.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(chartPane, Priority.ALWAYS);
+
+        // Toggle between charts
+        viewToggle.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == monthlyButton) {
+                chartPane.getChildren().setAll(monthlyEarningsChart);
+            } else if (newToggle == yearlyButton) {
+                chartPane.getChildren().setAll(yearlyEarningsChart);
+            }
+        });
+
+        window.getChildren().setAll(toggleBox, chartPane);
+        window.setPadding(new Insets(10));
+        HBox.setHgrow(window, Priority.ALWAYS);
+
+        return window;
+    }
+
+    private HBox createPostActivity() {
+        HBox window = new HBox(10); // Adds spacing between checkbox panel and chart
+
+        // Create CheckBoxes
+        CheckBox showImpressions = new CheckBox("Impressions");
+        CheckBox showLikes = new CheckBox("Likes");
+        CheckBox showComments = new CheckBox("Comments");
+        CheckBox showFreeUsers = new CheckBox("New Free Users");
+        CheckBox showPaidUsers = new CheckBox("New Paid Users");
+
+        // Add them to VBox
+        VBox checkBoxPanel = new VBox(10, showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers);
+        checkBoxPanel.setAlignment(Pos.TOP_LEFT);
+        checkBoxPanel.setPadding(new Insets(10));
+
+        // Add listeners
+        showImpressions.setOnAction(e -> updatePostChart(showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers));
+        showLikes.setOnAction(e -> updatePostChart(showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers));
+        showComments.setOnAction(e -> updatePostChart(showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers));
+        showFreeUsers.setOnAction(e -> updatePostChart(showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers));
+        showPaidUsers.setOnAction(e -> updatePostChart(showImpressions, showLikes, showComments, showFreeUsers, showPaidUsers));
+
+        // Setup chart
+        CategoryAxis x = new CategoryAxis();
+        x.setLabel("Post Titles");
+        NumberAxis y = new NumberAxis();
+        y.setLabel("Count");
+
+        postSBC = new StackedBarChart<>(x, y);
+        postSBC.setTitle("Post Activity");
+
+        // Wrap the chart in a resizable container
+        StackPane chartPane = new StackPane(postSBC);
+        chartPane.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(chartPane, Priority.ALWAYS);
+
+        window.getChildren().setAll(checkBoxPanel, chartPane);
+        window.setPadding(new Insets(10));
+        HBox.setHgrow(window, Priority.ALWAYS);
+
+        return window;
+    }
+    
+    private HBox createSurveyPieChart() {
+        HBox window = new HBox(10); // spacing between controls and chart
+        window.setPadding(new Insets(10));
+
+        Map<String, Integer> choiceCounts = new HashMap<>();
+        for (SurveyEntry entry : surveyData) {
+            String choice = entry.getSurvey().get();
+            choiceCounts.put(choice, choiceCounts.getOrDefault(choice, 0) + 1);
+        }
+
+        PieChart surveyPieChart = createPieChart(choiceCounts);
+        surveyPieChart.setTitle("Surveys Completed");
+
+        // Create button to toggle "Show Percentages"
+        CheckBox showPercentages = new CheckBox("Show Percentages");
+        showPercentages.setSelected(false);
+
+        showPercentages.setOnAction(e -> {
+            for (PieChart.Data data : surveyPieChart.getData()) {
+                if (showPercentages.isSelected()) {
+                    double total = choiceCounts.values().stream().mapToInt(Integer::intValue).sum();
+                    double percent = (data.getPieValue() / total) * 100;
+                    data.setName(String.format("%s (%.1f%%)", data.getName().split(" \\(")[0], percent));
+                } else {
+                    data.setName(data.getName().split(" \\(")[0]); // reset name
+                }
+            }
+        });
+
+        VBox controlBox = new VBox(10, showPercentages);
+        controlBox.setAlignment(Pos.TOP_LEFT);
+        controlBox.setPadding(new Insets(5));
+
+        // Allow chart to expand with window
+        StackPane chartPane = new StackPane(surveyPieChart);
+        chartPane.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(chartPane, Priority.ALWAYS);
+
+        window.getChildren().addAll(controlBox, chartPane);
+        return window;
     }
 
 }
