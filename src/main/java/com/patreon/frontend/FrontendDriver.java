@@ -5,6 +5,8 @@ import com.patreon.frontend.models.EarningEntry;
 import com.patreon.frontend.models.PostEntry;
 import com.patreon.frontend.models.SurveyEntry;
 import com.patreon.frontend.models.UserEntry;
+import com.patreon.utils.DatabaseConnection;
+import com.patreon.utils.DatabaseUtils;
 
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -30,6 +32,11 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 
 public class FrontendDriver extends Application {
@@ -152,6 +159,7 @@ public class FrontendDriver extends Application {
     // Tab Initialization
     // ----------------------------
     private void initializeTabs() {
+
     	openTab("Revenue", revenueChartBox);
         openTab("Retention", retentionChartBox);
         openTab("Demographics", demographicChartBox);
@@ -252,18 +260,23 @@ public class FrontendDriver extends Application {
     private void initializeTables() {
     	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
     	setupEarningTableColumns();
+    	loadEarningsFromDB();
     	earningTable.setItems(earningData);
     	
     	setupPostTableColumns();
+    	loadPostFromDB();
     	postTable.setItems(postData);
     	
     	setupSurveyTableColumns();
+    	loadSurveyFromDB();
     	surveyTable.setItems(surveyData);
     	
     	setupUserTableColumns();
+    	loadUserFromDB();
     	userTable.setItems(userData);
     	
     	setupRewardsTableColumns();
+    	loadRewardsFromDB();
     	rewardsTable.setItems(rewardList);
     }
     
@@ -331,6 +344,12 @@ public class FrontendDriver extends Application {
 
             EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients);
             rewardList.add(reward);
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                DatabaseUtils.saveRewardToDatabase(conn, reward);
+                System.out.println("Reward saved successfully.");
+            } catch (SQLException e1) {
+                e1.printStackTrace();
+            }
             
             // Simulate saving logic
             System.out.println("=== Email Trigger Saved ===");
@@ -627,7 +646,12 @@ public class FrontendDriver extends Application {
                 earningData.add(entry);
             }
             earningTable.setItems(earningData);
-
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                DatabaseUtils.saveEarningsToDatabase(conn, earningData);
+                System.out.println("Earnings data saved successfully.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
         } catch (IOException e) {
             e.printStackTrace();
             showAlert("File Error", "Could not read the file.");
@@ -760,6 +784,12 @@ public class FrontendDriver extends Application {
             }
 
             postTable.setItems(postData);
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                DatabaseUtils.savePostToDatabase(conn, postData);
+                System.out.println("Post data saved successfully.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -840,6 +870,12 @@ public class FrontendDriver extends Application {
             }
 
             surveyTable.setItems(surveyData);
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                DatabaseUtils.saveSurveyToDatabase(conn, surveyData);
+                System.out.println("Survey data saved successfully.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -908,7 +944,7 @@ public class FrontendDriver extends Application {
 
                
                 UserEntry entry = new UserEntry(
-                        new SimpleStringProperty(tokens[0].trim()),
+                        new SimpleIntegerProperty(),
                         new SimpleStringProperty(tokens[1].trim()),
                         new SimpleStringProperty(tokens[2].trim()),
                         new SimpleStringProperty(tokens[3].trim()),
@@ -932,6 +968,12 @@ public class FrontendDriver extends Application {
                 userData.add(entry);
             }
             userTable.setItems(userData);
+            try (Connection conn = DatabaseConnection.getConnection()) {
+                DatabaseUtils.saveUserToDatabase(conn, userData);
+                System.out.println("User data saved successfully.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
 
         } catch (IOException e) {
             e.printStackTrace();
@@ -944,8 +986,8 @@ public class FrontendDriver extends Application {
     
     @SuppressWarnings("unchecked")
 	private void setupUserTableColumns() {
-    	TableColumn<UserEntry, String> userIDCol = new TableColumn<>("User ID");
-        userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID());
+    	TableColumn<UserEntry, Integer> userIDCol = new TableColumn<>("User ID");
+        userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID().asObject());
         
         TableColumn<UserEntry, String> firstNameCol = new TableColumn<>("First Name");
         firstNameCol.setCellValueFactory(cellData -> cellData.getValue().getFirstName());
@@ -1001,7 +1043,7 @@ public class FrontendDriver extends Application {
         TableColumn<UserEntry, String> raffleEligibleCol = new TableColumn<>("Raffle Eligible");
         raffleEligibleCol.setCellValueFactory(cellData -> cellData.getValue().getRaffleEligible());
         
-        ObservableList<TableColumn<UserEntry, String>> columns = FXCollections.observableArrayList();
+        ObservableList<TableColumn<UserEntry, ?>> columns = FXCollections.observableArrayList();
         columns.addAll(userIDCol,firstNameCol, lastNameCol, emailCol, activeCol, tierCol, pledgeCol,
         		addressNameCol, addressLine1Col, addressLine2Col, cityCol, stateCol, zipCodeCol,
         		countryCol,genderCol, ageRangeCol, educationCol, incomeRangeCol, raffleEligibleCol);
@@ -1465,4 +1507,382 @@ public class FrontendDriver extends Application {
         chart.setData(pieData);
     }
 
+    public void loadEarningsFromDB() {
+        String query = "SELECT month, year, total, webMembershipCharges, iOSMembershipCharges, " +
+                       "webGiftCharges, iOSGiftCharges, earnings, processingFee, patreonFee, iOSFee, " +
+                       "merchShipping, declines, percentMembershipEarnings, percentMembershipProcessingFees, " +
+                       "percentMembershipPatreonFees, percentGiftEarnings, percentGiftProcessingFees, " +
+                       "percentGiftPatreonFees, currencyConversionFee, currencyConversionFeePercent, currency " +
+                       "FROM earnings";  // match your actual DB table and columns
+
+        Connection conn = null;
+
+        try {
+            conn = DatabaseConnection.getConnection();
+            PreparedStatement stmt = conn.prepareStatement(query);
+            ResultSet rs = stmt.executeQuery();
+
+            earningData.clear();
+
+            while (rs.next()) {
+                EarningEntry entry = new EarningEntry(
+                    rs.getString("month"),
+                    rs.getInt("year"),
+                    rs.getDouble("total"),
+                    rs.getDouble("webMembershipCharges"),
+                    rs.getDouble("iOSMembershipCharges"),
+                    rs.getDouble("webGiftCharges"),
+                    rs.getDouble("iOSGiftCharges"),
+                    rs.getDouble("earnings"),
+                    rs.getDouble("processingFee"),
+                    rs.getDouble("patreonFee"),
+                    rs.getDouble("iOSFee"),
+                    rs.getDouble("merchShipping"),
+                    rs.getDouble("declines"),
+                    rs.getDouble("percentMembershipEarnings"),
+                    rs.getDouble("percentMembershipProcessingFees"),
+                    rs.getDouble("percentMembershipPatreonFees"),
+                    rs.getDouble("percentGiftEarnings"),
+                    rs.getDouble("percentGiftProcessingFees"),
+                    rs.getDouble("percentGiftPatreonFees"),
+                    rs.getDouble("currencyConversionFee"),
+                    rs.getDouble("currencyConversionFeePercent"),
+                    rs.getString("currency")
+                );
+
+                earningData.add(entry);
+            }
+
+            earningTable.setItems(earningData);
+
+            rs.close();
+            stmt.close();
+            conn.close();
+
+        } catch (SQLException e) {
+            if (e.getMessage().contains("no such table")) {
+                System.out.println("Earnings table does not exist. Creating it...");
+                if (conn != null) {
+                    createEarningsTable(conn);
+                }
+            } else {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static void createEarningsTable(Connection conn) {
+        String sql = """
+            CREATE TABLE IF NOT EXISTS earnings (
+                month TEXT,
+                year INTEGER,
+                total REAL,
+                webMembershipCharges REAL,
+                iOSMembershipCharges REAL,
+                webGiftCharges REAL,
+                iOSGiftCharges REAL,
+                earnings REAL,
+                processingFee REAL,
+                patreonFee REAL,
+                iOSFee REAL,
+                merchShipping REAL,
+                declines REAL,
+                percentMembershipEarnings REAL,
+                percentMembershipProcessingFees REAL,
+                percentMembershipPatreonFees REAL,
+                percentGiftEarnings REAL,
+                percentGiftProcessingFees REAL,
+                percentGiftPatreonFees REAL,
+                currencyConversionFee REAL,
+                currencyConversionFeePercent REAL,
+                currency TEXT
+            )
+            """;
+
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+            System.out.println("Earnings table created.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public void loadPostFromDB() {
+    	String query = "SELECT title, totalImpressions, likes, comments, newFreeMembers, " +
+    			"newPaidMembers, publishedDateTime, link FROM posts";  // match your actual DB table and columns
+
+    	Connection conn = null;
+
+    	try {conn = DatabaseConnection.getConnection();
+    		PreparedStatement stmt = conn.prepareStatement(query);
+    		ResultSet rs = stmt.executeQuery();
+
+    		postData.clear();
+
+    		while (rs.next()) {
+    			PostEntry entry = new PostEntry(
+    					rs.getString("title"),
+    					rs.getInt("totalImpressions"),
+    					rs.getInt("likes"),
+    					rs.getInt("comments"),
+    					rs.getInt("newFreeMembers"),
+    					rs.getInt("newPaidMembers"),
+    					rs.getString("publishedDateTime"),
+    					rs.getString("link")
+    			);
+
+    			postData.add(entry);
+    		}
+
+    		postTable.setItems(postData);
+
+    		rs.close();
+    		stmt.close();
+    		conn.close();
+
+    	} catch (SQLException e) {
+    		if (e.getMessage().contains("no such table")) {
+    			System.out.println("Post table does not exist. Creating it...");
+    			if (conn != null) {
+    				createPostTable(conn);
+    			}
+    		} else {
+    			e.printStackTrace();
+    		}
+    	}
+    }
+    
+    public static void createPostTable(Connection conn) {
+    	String sql = """
+                CREATE TABLE IF NOT EXISTS posts (
+                    title TEXT, 
+                    totalImpressions INTEGER, 
+                    likes INTEGER, 
+                    comments INTEGER, 
+                    newFreeMembers INTEGER,
+    				newPaidMembers INTEGER, 
+    				publishedDateTime TEXT, 
+    				link TEXT
+                )
+                """;
+
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                System.out.println("Posts table created.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
+    
+    public void loadSurveyFromDB() {
+    	String query = "SELECT submittedDateTime, name, email, tier, survey, comments FROM surveys";  // match your actual DB table and columns
+
+    	Connection conn = null;
+
+    	try {conn = DatabaseConnection.getConnection();
+    		PreparedStatement stmt = conn.prepareStatement(query);
+    		ResultSet rs = stmt.executeQuery();
+
+    		surveyData.clear();
+
+    		while (rs.next()) {
+    			SurveyEntry entry = new SurveyEntry(
+    					rs.getString("submittedDateTime"),
+    					rs.getString("name"),
+    					rs.getString("email"),
+    					rs.getString("tier"),
+    					rs.getString("survey"),
+    					rs.getString("comments")
+    			);
+
+    			surveyData.add(entry);
+    		}
+
+    		surveyTable.setItems(surveyData);
+
+    		rs.close();
+    		stmt.close();
+    		conn.close();
+
+    	} catch (SQLException e) {
+    		if (e.getMessage().contains("no such table")) {
+    			System.out.println("Survey table does not exist. Creating it...");
+    			if (conn != null) {
+    				createSurveyTable(conn);
+    			}
+    		} else {
+    			e.printStackTrace();
+    		}
+    	}
+    }
+    
+    public static void createSurveyTable(Connection conn) {
+    	String sql = """
+                CREATE TABLE IF NOT EXISTS surveys (
+                    submittedDateTime TEXT, 
+                    name TEXT, 
+                    email TEXT, 
+                    tier TEXT, 
+                    survey TEXT, 
+                    comments TEXT
+                )
+                """;
+
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                System.out.println("Surveys table created.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
+    
+    public void loadUserFromDB() {
+    	String query = "SELECT id, address_line1, address_line2, address_name, age_range, city,"
+    			+ "country, education_level, email, first_name, gender, income_range, is_active,"
+    			+ "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code "
+    			+ "FROM member";  // match your actual DB table and columns
+
+    	Connection conn = null;
+
+    	try {
+    		conn = DatabaseConnection.getConnection();
+    		PreparedStatement stmt = conn.prepareStatement(query);
+    		ResultSet rs = stmt.executeQuery();
+
+    		userData.clear();
+
+    		while (rs.next()) {
+    			UserEntry entry = new UserEntry(
+    					rs.getInt("id"),
+    					rs.getString("first_name"),
+    					rs.getString("last_name"),
+    					rs.getString("email"),
+    					rs.getString("is_active"),	
+    					rs.getString("tier_id"),
+    					rs.getString("pledge_amount_cents"),
+    					rs.getString("address_name"),	
+    					rs.getString("address_line1"),
+    					rs.getString("address_line2"),
+    					rs.getString("city"),
+    					rs.getString("state"),		
+    					rs.getString("zip_code"),
+    					rs.getString("country"),
+    					rs.getString("gender"),
+    					rs.getString("age_range"),
+    					rs.getString("education_level"),
+    					rs.getString("income_range"),
+    					rs.getString("raffle_eligible")
+    			);
+
+         userData.add(entry);
+     }
+
+     userTable.setItems(userData);
+
+     rs.close();
+     stmt.close();
+     conn.close();
+
+ } catch (SQLException e) {
+     if (e.getMessage().contains("no such table")) {
+         System.out.println("Member table does not exist. Creating it...");
+         if (conn != null) {
+             createUserTable(conn);
+         }
+     } else {
+         e.printStackTrace();
+     }
+ }
+    }
+    
+    public static void createUserTable(Connection conn) {
+    	String sql = """
+                CREATE TABLE IF NOT EXISTS member (
+                    id INTEGER, 
+                    address_line1 TEXT, 
+                    address_line2 TEXT, 
+                    address_name TEXT, 
+                    age_range TEXT, 
+                    city TEXT,
+    				country TEXT, 
+    				education_level TEXT, 
+    				email TEXT, 
+    				first_name TEXT, 
+    				gender TEXT, 
+    				income_range TEXT, 
+    				is_active TEXT, 
+    				last_name TEXT, 
+    				pledge_amount_cents INTEGER, 
+    				raffle_eligible TEXT, 
+    				state TEXT, 
+    				tier_id TEXT, 
+    				zip_code TEXT
+                )
+                """;
+
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                System.out.println("Member table created.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
+    
+    public void loadRewardsFromDB() {
+    	String query = "SELECT message, subject, trigger, recipients FROM rewards";  // match your actual DB table and columns
+
+    	Connection conn = null;
+
+    	try {conn = DatabaseConnection.getConnection();
+    		PreparedStatement stmt = conn.prepareStatement(query);
+    		ResultSet rs = stmt.executeQuery();
+
+    		rewardList.clear();
+
+    		while (rs.next()) {
+    			EmailReward entry = new EmailReward(
+    					rs.getString("message"),
+    					rs.getString("subject"),
+    					rs.getString("trigger"),
+    					rs.getString("recipients")
+    			);
+
+    			rewardList.add(entry);
+    		}
+
+    		rewardsTable.setItems(rewardList);
+
+    		rs.close();
+    		stmt.close();
+    		conn.close();
+
+    	} catch (SQLException e) {
+    		if (e.getMessage().contains("no such table")) {
+    			System.out.println("Rewards table does not exist. Creating it...");
+    			if (conn != null) {
+    				createRewardsTable(conn);
+    			}
+    		} else {
+    			e.printStackTrace();
+    		}
+    	}
+    }
+    
+    public static void createRewardsTable(Connection conn) {
+    	String sql = """
+                CREATE TABLE IF NOT EXISTS rewards (
+                    message TEXT, 
+                    subject TEXT, 
+                    trigger TEXT, 
+                    recipients TEXT
+                )
+                """;
+
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute(sql);
+                System.out.println("Rewards table created.");
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+    }
 }

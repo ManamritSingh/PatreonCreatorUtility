@@ -1,9 +1,10 @@
 package com.patreon.frontend.models;
 
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 
 public class UserEntry {
-	private final SimpleStringProperty userID;
+	private final SimpleIntegerProperty userID;
 	private final SimpleStringProperty firstName;
 	private final SimpleStringProperty lastName;
 	private final SimpleStringProperty email;
@@ -23,7 +24,7 @@ public class UserEntry {
 	private final SimpleStringProperty incomeRange;
 	private final SimpleStringProperty raffleEligible;
 	
-	public UserEntry(SimpleStringProperty userID, SimpleStringProperty firstName, SimpleStringProperty lastName,
+	public UserEntry(SimpleIntegerProperty userID, SimpleStringProperty firstName, SimpleStringProperty lastName,
 			SimpleStringProperty email, SimpleStringProperty active, SimpleStringProperty tier,
 			SimpleStringProperty pledge, SimpleStringProperty addressName, SimpleStringProperty addressLine1,
 			SimpleStringProperty addressLine2, SimpleStringProperty city, SimpleStringProperty state,
@@ -51,8 +52,34 @@ public class UserEntry {
 		this.incomeRange = incomeRange;
 		this.raffleEligible = raffleEligible;
 	}
+	
+	public UserEntry(Integer userID, String  firstName, String lastName, String  email, String active, 
+			String tier, String pledge, String  addressName, String  addressLine1, String  addressLine2, 
+			String city, String state, String  zipCode, String  country, String  gender,
+			String ageRange, String  educationLevel, String  incomeRange, String raffleEligible) {
 
-	public SimpleStringProperty getUserID() {
+		this.userID = new SimpleIntegerProperty(userID);
+		this.firstName = new SimpleStringProperty(firstName);
+		this.lastName = new SimpleStringProperty(lastName);
+		this.email = new SimpleStringProperty(email);
+		this.active = new SimpleStringProperty(active);
+		this.tier = new SimpleStringProperty(tier);
+		this.pledge = new SimpleStringProperty(pledge);
+		this.addressName = new SimpleStringProperty(addressName);
+		this.addressLine1 = new SimpleStringProperty(addressLine1);
+		this.addressLine2 = new SimpleStringProperty(addressLine2);
+		this.city = new SimpleStringProperty(city);
+		this.state = new SimpleStringProperty(state);
+		this.zipCode = new SimpleStringProperty(zipCode);
+		this.country = new SimpleStringProperty(country);
+		this.gender = new SimpleStringProperty(gender);
+		this.ageRange = new SimpleStringProperty(ageRange);
+		this.educationLevel = new SimpleStringProperty(educationLevel);
+		this.incomeRange = new SimpleStringProperty(incomeRange);
+		this.raffleEligible = new SimpleStringProperty(raffleEligible);
+	}
+
+	public SimpleIntegerProperty getUserID() {
 		return userID;
 	}
 
