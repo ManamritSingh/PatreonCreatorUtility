@@ -944,7 +944,7 @@ public class FrontendDriver extends Application {
 
                
                 UserEntry entry = new UserEntry(
-                        new SimpleIntegerProperty(),
+                        new SimpleStringProperty(tokens[0].trim()),
                         new SimpleStringProperty(tokens[1].trim()),
                         new SimpleStringProperty(tokens[2].trim()),
                         new SimpleStringProperty(tokens[3].trim()),
@@ -986,8 +986,8 @@ public class FrontendDriver extends Application {
     
     @SuppressWarnings("unchecked")
 	private void setupUserTableColumns() {
-    	TableColumn<UserEntry, Integer> userIDCol = new TableColumn<>("User ID");
-        userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID().asObject());
+    	TableColumn<UserEntry, String> userIDCol = new TableColumn<>("User ID");
+        userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID());
         
         TableColumn<UserEntry, String> firstNameCol = new TableColumn<>("First Name");
         firstNameCol.setCellValueFactory(cellData -> cellData.getValue().getFirstName());
@@ -1043,7 +1043,7 @@ public class FrontendDriver extends Application {
         TableColumn<UserEntry, String> raffleEligibleCol = new TableColumn<>("Raffle Eligible");
         raffleEligibleCol.setCellValueFactory(cellData -> cellData.getValue().getRaffleEligible());
         
-        ObservableList<TableColumn<UserEntry, ?>> columns = FXCollections.observableArrayList();
+        ObservableList<TableColumn<UserEntry, String>> columns = FXCollections.observableArrayList();
         columns.addAll(userIDCol,firstNameCol, lastNameCol, emailCol, activeCol, tierCol, pledgeCol,
         		addressNameCol, addressLine1Col, addressLine2Col, cityCol, stateCol, zipCodeCol,
         		countryCol,genderCol, ageRangeCol, educationCol, incomeRangeCol, raffleEligibleCol);
@@ -1740,7 +1740,7 @@ public class FrontendDriver extends Application {
     	String query = "SELECT id, address_line1, address_line2, address_name, age_range, city,"
     			+ "country, education_level, email, first_name, gender, income_range, is_active,"
     			+ "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code "
-    			+ "FROM member";  // match your actual DB table and columns
+    			+ "FROM usercsv";  // match your actual DB table and columns
 
     	Connection conn = null;
 
@@ -1753,7 +1753,7 @@ public class FrontendDriver extends Application {
 
     		while (rs.next()) {
     			UserEntry entry = new UserEntry(
-    					rs.getInt("id"),
+    					rs.getString("id"),
     					rs.getString("first_name"),
     					rs.getString("last_name"),
     					rs.getString("email"),
@@ -1797,8 +1797,8 @@ public class FrontendDriver extends Application {
     
     public static void createUserTable(Connection conn) {
     	String sql = """
-                CREATE TABLE IF NOT EXISTS member (
-                    id INTEGER, 
+                CREATE TABLE IF NOT EXISTS usercsv (
+                    id TEXT, 
                     address_line1 TEXT, 
                     address_line2 TEXT, 
                     address_name TEXT, 
@@ -1822,7 +1822,7 @@ public class FrontendDriver extends Application {
 
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(sql);
-                System.out.println("Member table created.");
+                System.out.println("User table created.");
             } catch (SQLException e) {
                 e.printStackTrace();
             }

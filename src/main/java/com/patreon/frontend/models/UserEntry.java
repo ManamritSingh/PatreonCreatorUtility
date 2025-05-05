@@ -4,7 +4,7 @@ import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 
 public class UserEntry {
-	private final SimpleIntegerProperty userID;
+	private final SimpleStringProperty userID;
 	private final SimpleStringProperty firstName;
 	private final SimpleStringProperty lastName;
 	private final SimpleStringProperty email;
@@ -24,7 +24,7 @@ public class UserEntry {
 	private final SimpleStringProperty incomeRange;
 	private final SimpleStringProperty raffleEligible;
 	
-	public UserEntry(SimpleIntegerProperty userID, SimpleStringProperty firstName, SimpleStringProperty lastName,
+	public UserEntry(SimpleStringProperty userID, SimpleStringProperty firstName, SimpleStringProperty lastName,
 			SimpleStringProperty email, SimpleStringProperty active, SimpleStringProperty tier,
 			SimpleStringProperty pledge, SimpleStringProperty addressName, SimpleStringProperty addressLine1,
 			SimpleStringProperty addressLine2, SimpleStringProperty city, SimpleStringProperty state,
@@ -53,12 +53,12 @@ public class UserEntry {
 		this.raffleEligible = raffleEligible;
 	}
 	
-	public UserEntry(Integer userID, String  firstName, String lastName, String  email, String active, 
+	public UserEntry(String userID, String  firstName, String lastName, String  email, String active, 
 			String tier, String pledge, String  addressName, String  addressLine1, String  addressLine2, 
 			String city, String state, String  zipCode, String  country, String  gender,
 			String ageRange, String  educationLevel, String  incomeRange, String raffleEligible) {
 
-		this.userID = new SimpleIntegerProperty(userID);
+		this.userID = new SimpleStringProperty(userID);
 		this.firstName = new SimpleStringProperty(firstName);
 		this.lastName = new SimpleStringProperty(lastName);
 		this.email = new SimpleStringProperty(email);
@@ -79,7 +79,7 @@ public class UserEntry {
 		this.raffleEligible = new SimpleStringProperty(raffleEligible);
 	}
 
-	public SimpleIntegerProperty getUserID() {
+	public SimpleStringProperty getUserID() {
 		return userID;
 	}
 
