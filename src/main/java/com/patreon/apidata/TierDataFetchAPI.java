@@ -6,22 +6,25 @@ import com.patreon.api.TokenStore;
 import com.patreon.api.models.Campaign;
 import com.patreon.api.models.Member;
 import com.patreon.api.models.Tier;
-import com.patreon.utils.CSVExporter;
-import com.patreon.utils.CSVExporter.TierSnapshot;
+import com.patreon.backend.models.TierSnapshot;
+import com.patreon.backend.TierSnapshotRepository;
 import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-public class TierDataFetchAPI {
+@Component
+public class TierDataFetchAPI implements CommandLineRunner {
 
-    public static void main(String[] args) {
+    @Autowired
+    private TierSnapshotRepository snapshotRepository;
+
+    @Override
+    public void run(String... args) throws Exception {
         try {
-            // Load credentials
             Dotenv dotenv = Dotenv.load();
             String clientId = dotenv.get("CLIENT_ID");
             String clientSecret = dotenv.get("CLIENT_SECRET");
@@ -35,57 +38,44 @@ public class TierDataFetchAPI {
                 return;
             }
 
-            // Fetch Campaign and Tiers
             CampaignService campaignService = new CampaignService(token.access_token);
             Campaign campaign = campaignService.getCampaignWithTiers();
             List<Tier> tiers = campaign.tiers;
 
-            // Fetch Members
             MemberService memberService = new MemberService(token.access_token);
             List<Member> members = memberService.getMembers(campaign.id);
 
-            // Prepare Tier earnings and counts
             Map<String, Integer> tierPatronCounts = new HashMap<>();
             Map<String, Integer> tierEarnings = new HashMap<>();
 
             for (Member member : members) {
                 if (member.isActive() && member.getTierId() != null) {
-                    tierPatronCounts.put(
-                            member.getTierId(),
-                            tierPatronCounts.getOrDefault(member.getTierId(), 0) + 1
-                    );
-                    tierEarnings.put(
-                            member.getTierId(),
-                            tierEarnings.getOrDefault(member.getTierId(), 0) + member.getPledgeAmountCents()
-                    );
+                    tierPatronCounts.merge(member.getTierId(), 1, Integer::sum);
+                    tierEarnings.merge(member.getTierId(), member.getPledgeAmountCents(), Integer::sum);
                 }
             }
 
-            // Prepare list of TierSnapshots for CSV
             List<TierSnapshot> snapshots = new ArrayList<>();
+            LocalDate now = LocalDate.now();
+
             for (Tier tier : tiers) {
                 int patrons = tierPatronCounts.getOrDefault(tier.getId(), 0);
                 double revenue = tierEarnings.getOrDefault(tier.getId(), 0) / 100.0;
 
                 snapshots.add(new TierSnapshot(
-                        (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle(),
+                        tier.getTitle() == null || tier.getTitle().isBlank() ? "Untitled Tier" : tier.getTitle(),
                         patrons,
-                        revenue
+                        revenue,
+                        now,
+                        false // isMock = false for real data
                 ));
             }
 
-            // Export to CSV
-            CSVExporter.export(snapshots, true, LocalDate.now(), null);
-            // 🔥 OVERWRITE the CSV when real data is saved
+            snapshotRepository.saveAll(snapshots);
+            System.out.println("✅ Real data saved to database successfully!");
 
-
-            System.out.println("✅ Real Patreon data exported successfully to data/tier_data.csv!");
-
-        } catch (IOException e) {
-            System.err.println("❌ IO Error: " + e.getMessage());
-            e.printStackTrace();
         } catch (Exception e) {
-            System.err.println("❌ Unexpected Error: " + e.getMessage());
+            System.err.println("❌ Error: " + e.getMessage());
             e.printStackTrace();
         }
     }
