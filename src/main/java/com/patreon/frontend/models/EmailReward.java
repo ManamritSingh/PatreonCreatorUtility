@@ -1,5 +1,6 @@
 package com.patreon.frontend.models;
 
+import java.util.Arrays;
 import java.util.List;
 
 import javafx.beans.property.SimpleStringProperty;
@@ -15,6 +16,13 @@ public class EmailReward {
 		this.subject = subject;
 		this.triggerOpt = trigger;
 		this.recipients = recepient;
+	}
+	
+	public EmailReward(String message, String subject, String trigger, String recipients) {
+        this.message = new SimpleStringProperty(message);
+        this.subject = new SimpleStringProperty(subject);
+        this.triggerOpt = new SimpleStringProperty(trigger);
+        this.recipients = Arrays.asList(recipients.split(","));
 	}
 	
 	public SimpleStringProperty getMessage() {
