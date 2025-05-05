@@ -26,6 +26,20 @@ public class PostEntry {
         this.publishedDateTime = publishedDateTime;
         this.link = link;
     }
+    
+    public PostEntry(String title, Integer totalImpressions, Integer likes, Integer comments, 
+    		Integer newFreeMembers, Integer newPaidMembers, String publishedDateTime, String link) {
+    	
+    	this.title = new SimpleStringProperty(title);
+    	this.totalImpressions = new SimpleIntegerProperty (totalImpressions);
+    	this.likes = new SimpleIntegerProperty (likes);
+    	this.comments = new SimpleIntegerProperty (comments);
+    	this.newFreeMembers = new SimpleIntegerProperty (newFreeMembers);
+    	this.newPaidMembers = new SimpleIntegerProperty (newPaidMembers);
+    	this.publishedDateTime = new SimpleStringProperty(publishedDateTime);
+    	this.link = new SimpleStringProperty(link);
+    }
+
 
     public SimpleStringProperty getTitle() {
         return title;

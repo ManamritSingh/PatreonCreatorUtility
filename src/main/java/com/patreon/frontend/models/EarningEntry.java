@@ -68,6 +68,41 @@ public class EarningEntry {
         this.currencyConversionFeePercent = currencyConversionFeePercent;
         this.currency = currency;
     }
+    
+    public EarningEntry(
+    	    String month, int year, double total, double webMembershipCharges,
+    	    double iOSMembershipCharges, double webGiftCharges, double iOSGiftCharges,
+    	    double earnings, double processingFee, double patreonFee, double iOSFee,
+    	    double merchShipping, double declines, double percentMembershipEarnings,
+    	    double percentMembershipProcessingFees, double percentMembershipPatreonFees,
+    	    double percentGiftEarnings, double percentGiftProcessingFees,
+    	    double percentGiftPatreonFees, double currencyConversionFee,
+    	    double currencyConversionFeePercent, String currency
+    	) {
+    	    this.month = new SimpleStringProperty(month);
+    	    this.year = new SimpleIntegerProperty(year);
+    	    this.total = new SimpleDoubleProperty(total);
+    	    this.webMembershipCharges = new SimpleDoubleProperty(webMembershipCharges);
+    	    this.iOSMembershipCharges = new SimpleDoubleProperty(iOSMembershipCharges);
+    	    this.webGiftCharges = new SimpleDoubleProperty(webGiftCharges);
+    	    this.iOSGiftCharges = new SimpleDoubleProperty(iOSGiftCharges);
+    	    this.earnings = new SimpleDoubleProperty(earnings);
+    	    this.processingFee = new SimpleDoubleProperty(processingFee);
+    	    this.patreonFee = new SimpleDoubleProperty(patreonFee);
+    	    this.iOSFee = new SimpleDoubleProperty(iOSFee);
+    	    this.merchShipping = new SimpleDoubleProperty(merchShipping);
+    	    this.declines = new SimpleDoubleProperty(declines);
+    	    this.percentMembershipEarnings = new SimpleDoubleProperty(percentMembershipEarnings);
+    	    this.percentMembershipProcessingFees = new SimpleDoubleProperty(percentMembershipProcessingFees);
+    	    this.percentMembershipPatreonFees = new SimpleDoubleProperty(percentMembershipPatreonFees);
+    	    this.percentGiftEarnings = new SimpleDoubleProperty(percentGiftEarnings);
+    	    this.percentGiftProcessingFees = new SimpleDoubleProperty(percentGiftProcessingFees);
+    	    this.percentGiftPatreonFees = new SimpleDoubleProperty(percentGiftPatreonFees);
+    	    this.currencyConversionFee = new SimpleDoubleProperty(currencyConversionFee);
+    	    this.currencyConversionFeePercent = new SimpleDoubleProperty(currencyConversionFeePercent);
+    	    this.currency = new SimpleStringProperty(currency);
+    	}
+
 
     public SimpleStringProperty getMonth() {
         return month;
