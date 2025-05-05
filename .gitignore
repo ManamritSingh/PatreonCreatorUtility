@@ -1,5 +1,6 @@
 .env
 *.csv
+*.db
 patreon_tokens.json
 target/
 !.mvn/wrapper/maven-wrapper.jar
