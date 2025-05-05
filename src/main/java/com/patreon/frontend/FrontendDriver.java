@@ -241,6 +241,29 @@ public class FrontendDriver extends Application {
         tabPane.getTabs().add(rewardsTab);
         tabPane.getSelectionModel().select(rewardsTab);
     }
+	
+	private void buildCharts(String section) {
+		
+		switch(section) {
+			case "Revenue":
+				HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
+                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings);
+				break;
+			case "Retention":
+				break;
+			case "Demographics":
+				HBox genderDist = cc.createGenderDistributionChart(userData);
+                HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
+                HBox educationPie = cc.createEducationPieChart(userData);
+                demographicChartBox.getChildren().setAll(genderDist, behavior, educationPie); 
+				break;
+			case "Campaign Activity":
+				HBox postActivity = cc.createPostActivity(postData);
+				HBox surveyPie = cc.createSurveyPieChart(surveyData);
+                campaignChartBox.getChildren().setAll(postActivity, surveyPie);
+				break;
+		}
+	}
  
     private void initializeTables() {
     	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
@@ -263,8 +286,12 @@ public class FrontendDriver extends Application {
     	tc.setupRewardsTableColumns(rewardsTable);
     	ds.loadRewardsFromDB(rewardsTable, rewardList);
     	rewardsTable.setItems(rewardList);
+    	
+    	buildCharts("Revenue");
+    	buildCharts("Retention");
+    	buildCharts("Demographics");
+    	buildCharts("Campaign Activity");
     }
-    
     
     private void openFile() {
     	try{
@@ -286,65 +313,26 @@ public class FrontendDriver extends Application {
                 if (result.isPresent()) {
                     String type = result.get();
                     Platform.runLater(() -> { 
-                        VBox updatedCampaignBox = new VBox(20);  // For stacking post and survey charts
-                        updatedCampaignBox.setPadding(new Insets(10));
 
                         switch (type) {
                             case "Earnings":
                                 cp.parseEarningsCSV(file, earningTable, earningData);
-                                HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
-                                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings); // Add to revenue chart box
+                                buildCharts("Revenue");
                                 break;
 
                             case "Posts":
                                 cp.parsePostsCSV(file, postTable, postData);
-                                HBox postActivity = cc.createPostActivity(postData);
-                                postActivity.setId("postChart");
-
-                                // Remove the old post chart if it exists and add the new one
-                                updatedCampaignBox.getChildren().clear(); // Clear out the old contents
-                                
-                                // Add post chart to the top of the updatedCampaignBox
-                                updatedCampaignBox.getChildren().add(postActivity);
-
-                                // Re-add all existing charts (Survey and others) that are not the post chart
-                                List<Node> existingNodes = new ArrayList<>(campaignChartBox.getChildren());
-                                for (Node node : existingNodes) {
-                                    if (!(node instanceof HBox) || !"postChart".equals(node.getId())) {
-                                        updatedCampaignBox.getChildren().add(node);
-                                    }
-                                }
-
-                                // Replace campaignChartBox contents with the updated stack (post + existing charts)
-                                campaignChartBox.getChildren().setAll(updatedCampaignBox.getChildren());
+                                buildCharts("Campaign Activity");
                                 break;
 
                             case "Surveys":
                                 cp.parseSurveysCSV(file, surveyTable, surveyData);
-                                HBox surveyPie = cc.createSurveyPieChart(surveyData);
-                                surveyPie.setId("surveyChart"); // Tag this chart
-
-                                // Ensure survey chart goes to the bottom of the updated stack
-                                updatedCampaignBox.getChildren().add(surveyPie);
-
-                                // Re-add all existing charts (Post and others) that are not the survey chart
-                                List<Node> existingNodesSur = new ArrayList<>(campaignChartBox.getChildren());
-                                for (Node node : existingNodesSur) {
-                                    if (!(node instanceof HBox) || !"surveyChart".equals(node.getId())) {
-                                        updatedCampaignBox.getChildren().add(node);
-                                    }
-                                }
-
-                                // Replace campaignChartBox contents with the updated stack (post + survey + others)
-                                campaignChartBox.getChildren().setAll(updatedCampaignBox.getChildren());
+                                buildCharts("Campaign Activity");
                                 break;
 
                             case "User":
                                 cp.parseUserCSV(file, userTable, userData);
-                                HBox genderDist = cc.createGenderDistributionChart(userData);
-                                HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
-                                HBox educationPie = cc.createEducationPieChart(userData);
-                                demographicChartBox.getChildren().setAll(genderDist, behavior, educationPie); 
+                                buildCharts("Demographics");
                                 break;
                         }
                     });
@@ -355,5 +343,7 @@ public class FrontendDriver extends Application {
             ex.printStackTrace();
             System.out.println("Error opening file: " + ex.getMessage());}
     }
+    
+    
 
 }
