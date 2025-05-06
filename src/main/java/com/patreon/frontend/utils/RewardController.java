@@ -171,7 +171,5 @@ public class RewardController {
 	        alert.showAndWait();
 	    }
 	}
-
-
 }
 
