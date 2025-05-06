@@ -55,4 +55,27 @@ public class MockDataGenerator {
         repo.saveAll(snapshots);
         System.out.println("✅ Mock data generated for " + label + " on " + date);
     }
+
+    public void generateOneYearOfFakeData(List<Tier> tiers) {
+        LocalDate today = LocalDate.now();
+        for (int i = 360; i >= 1; i--) {
+            LocalDate date = today.minusDays(i);
+            boolean skip = true;
+
+            for (Tier tier : tiers) {
+                String tierName = (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle();
+                if (!repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(), true)) {
+                    skip = false;
+                    break;
+                }
+            }
+
+            if (!skip) {
+                generateFakeDataForDate(date, tiers, "Yearly Seeder");
+            }
+        }
+        System.out.println("✅ 360 days of mock data seeded to database!");
+    }
+
+
 }
