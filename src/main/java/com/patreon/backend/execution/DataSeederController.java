@@ -6,6 +6,7 @@ import com.patreon.api.TokenResponse;
 import com.patreon.api.TokenStore;
 import com.patreon.api.models.Campaign;
 import com.patreon.backend.MockDataGenerator;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +50,7 @@ public class DataSeederController {
 
             return ResponseEntity.ok("✅ 360 days of mock data generated.");
         } catch (Exception e) {
+        	
             return ResponseEntity.status(500).body("❌ Failed: " + e.getMessage());
         }
     }
