@@ -17,6 +17,6 @@ public class DemoApplication {
 				System.setProperty(entry.getKey(), entry.getValue())
 		);
 
-		SpringApplication.run(DemoApplication.class, args);
+//		SpringApplication.run(DemoApplication.class, args);
 	}
 }
