@@ -77,15 +77,12 @@ public class FrontendDriver extends Application {
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
-        //updateToolBar(tabPane.getTabs().get(0).getText());
-
-        // Tab change listener to update toolbar
-        /*tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
-            if (newTab != null) {
-                updateToolBar(newTab.getText());
-            }
-        });*/
-
+        buildCharts("Revenue");
+    	buildCharts("Retention");
+    	buildCharts("Demographics");
+    	buildCharts("Campaign Activity");
+        
+        
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
         scene.getStylesheets().add(getClass().getResource("/styles/chart-styles.css").toExternalForm());
@@ -286,11 +283,6 @@ public class FrontendDriver extends Application {
     	tc.setupRewardsTableColumns(rewardsTable);
     	ds.loadRewardsFromDB(rewardsTable, rewardList);
     	rewardsTable.setItems(rewardList);
-    	
-    	buildCharts("Revenue");
-    	buildCharts("Retention");
-    	buildCharts("Demographics");
-    	buildCharts("Campaign Activity");
     }
     
     private void openFile() {
