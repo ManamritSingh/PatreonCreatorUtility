@@ -13,7 +13,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
@@ -55,6 +54,7 @@ public class FrontendDriver extends Application {
     private CSVParser cp = new CSVParser();
     private ChartCreator cc = new ChartCreator();
     private DatabaseServices ds = new DatabaseServices();
+    
 
 
     public static void main(String[] args) {
@@ -67,13 +67,11 @@ public class FrontendDriver extends Application {
         window.setTitle("Patreon Creator Toolkit");
 
         // Layout setup
-        //toolBar.setOrientation(Orientation.VERTICAL);
         BorderPane layout = new BorderPane();
         layout.setTop(createMenuBar());
-        //layout.setLeft(toolBar);
         layout.setCenter(tabPane);
 
-        // Initialize tabs,tables, and toolbars
+        // Initialize tabs,tables, and charts
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
@@ -81,7 +79,7 @@ public class FrontendDriver extends Application {
     	buildCharts("Retention");
     	buildCharts("Demographics");
     	buildCharts("Campaign Activity");
-        
+    	
         
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
@@ -98,11 +96,11 @@ public class FrontendDriver extends Application {
 
         Menu fileMenu = new Menu("File");
         MenuItem menuOpen = new MenuItem("Open");
-        MenuItem menuSave = new MenuItem("Save");
         Menu viewMenu = new Menu("View");
         Menu charts = new Menu("Charts");
         Menu dataFiles = new Menu("Data File");
         MenuItem emailRewards = new MenuItem("Email Rewards");
+        MenuItem chatbot = new MenuItem("Chatbot");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
@@ -124,6 +122,7 @@ public class FrontendDriver extends Application {
         viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
+        chatbot.setOnAction(e -> openChatbotTab());
 
         //Open CSV Files
         menuOpen.setOnAction(e -> openFile());
@@ -131,7 +130,7 @@ public class FrontendDriver extends Application {
         viewMenu.getItems().addAll(charts,dataFiles);
         charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
         dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile, viewUserFile);
-        fileMenu.getItems().addAll(menuOpen, viewMenu, menuSave, emailRewards);
+        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards, chatbot);
         menuBar.getMenus().add(fileMenu);
 
         return menuBar;
@@ -252,12 +251,12 @@ public class FrontendDriver extends Application {
 				HBox genderDist = cc.createGenderDistributionChart(userData);
                 HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
                 HBox educationPie = cc.createEducationPieChart(userData);
-                demographicChartBox.getChildren().setAll(genderDist, behavior, educationPie); 
+                demographicChartBox.getChildren().setAll(genderDist, new Separator(), behavior, new Separator(), educationPie); 
 				break;
 			case "Campaign Activity":
 				HBox postActivity = cc.createPostActivity(postData);
 				HBox surveyPie = cc.createSurveyPieChart(surveyData);
-                campaignChartBox.getChildren().setAll(postActivity, surveyPie);
+                campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
 				break;
 		}
 	}
@@ -336,6 +335,83 @@ public class FrontendDriver extends Application {
             System.out.println("Error opening file: " + ex.getMessage());}
     }
     
-    
+    private void openChatbotTab() {
+        // Check if the "Chatbot" tab already exists
+        for (Tab tab : tabPane.getTabs()) {
+            if (tab.getText().equals("Chatbot")) {
+                tabPane.getSelectionModel().select(tab);  // Switch to it
+                return;
+            }
+        }
+
+        // Create new VBox chatbot panel
+        VBox chatbotBox = new VBox(10);
+        chatbotBox.setStyle("-fx-background-color: lightgray; -fx-padding: 10;");
+        chatbotBox.setPrefWidth(400);
+
+        // Chat history area
+        ScrollPane scrollPane = new ScrollPane();
+        VBox chatHistory = new VBox(5);
+        chatHistory.setFillWidth(true);
+        scrollPane.setContent(chatHistory);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+
+        // User input field
+        TextField userInput = new TextField();
+        userInput.setPromptText("Type your message...");
+
+        // Send button
+        Button sendButton = new Button("Send");
+        sendButton.setOnAction(event -> {
+            String userMessage = userInput.getText();
+            if (!userMessage.trim().isEmpty()) {
+                chatHistory.getChildren().add(createUserMessage(userMessage));
+                chatHistory.getChildren().add(createChatbotResponse(
+                    "You are currently viewing the " + getSelectedTabName() + " tab."
+                ));
+                userInput.clear();
+                scrollPane.setVvalue(1.0);
+            }
+        });
+
+        // Add components to chatbot panel
+        chatbotBox.getChildren().addAll(scrollPane, userInput, sendButton);
+
+        // Create a new tab named "Chatbot" and add the panel
+        Tab chatbotTab = new Tab("Chatbot");
+        chatbotTab.setContent(chatbotBox);
+        tabPane.getTabs().add(chatbotTab);
+        tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
+    }
+
+
+    // Helper method to create the user message bubble
+    private HBox createUserMessage(String message) {
+        Label userMessage = new Label(message);
+        userMessage.setStyle("-fx-background-color: #5dadec; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 20px;");
+        userMessage.setMaxWidth(200);
+        userMessage.setWrapText(true);
+        HBox userBubble = new HBox(userMessage);
+        userBubble.setAlignment(Pos.BASELINE_RIGHT);
+        return userBubble;
+    }
+
+    // Helper method to create the chatbot response bubble
+    private HBox createChatbotResponse(String response) {
+        Label chatbotMessage = new Label(response);
+        chatbotMessage.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: black; -fx-padding: 10; -fx-background-radius: 20px;");
+        chatbotMessage.setMaxWidth(200);
+        chatbotMessage.setWrapText(true);
+        HBox chatbotBubble = new HBox(chatbotMessage);
+        chatbotBubble.setAlignment(Pos.BASELINE_LEFT);
+        return chatbotBubble;
+    }
+
+    // Helper method to get the name of the selected tab
+    private String getSelectedTabName() {
+        // In a real application, you'd check which tab is selected
+        return "Revenue";  // Return a dummy value for now
+    }
 
 }
