@@ -164,8 +164,8 @@ public class DatabaseUtils {
     }
     
     public static void saveUserToDatabase(Connection connection, List<UserEntry> userData) throws SQLException{
-    	String deleteSQL = "DELETE FROM usercsv";
-        String insertSQL = "INSERT INTO usercsv (" +
+    	String deleteSQL = "DELETE FROM member";
+        String insertSQL = "INSERT INTO member (" +
                 "id, address_line1, address_line2, address_name, age_range, city,"
                 + "country, education_level, email, first_name, gender, income_range, is_active,"
                 + "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code"
@@ -184,7 +184,7 @@ public class DatabaseUtils {
             // Step 2: Insert new data
             insertStmt = connection.prepareStatement(insertSQL);
             for (UserEntry entry : userData) {
-                insertStmt.setString(1, entry.getUserID().get());
+                insertStmt.setInt(1, entry.getUserID().get());
                 insertStmt.setString(2, entry.getAddressLine1().get());
                 insertStmt.setString(3, entry.getAddressLine2().get());
                 insertStmt.setString(4, entry.getAddressName().get());

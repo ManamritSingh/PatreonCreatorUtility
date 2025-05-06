@@ -3,11 +3,9 @@ package com.patreon.frontend.models;
 import java.util.Arrays;
 import java.util.List;
 
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 
 public class EmailReward {
-	private final SimpleIntegerProperty id = new SimpleIntegerProperty();
 	private SimpleStringProperty  message;
 	private SimpleStringProperty subject;
 	private SimpleStringProperty triggerOpt;
@@ -27,15 +25,6 @@ public class EmailReward {
         this.recipients = Arrays.asList(recipients.split(","));
 	}
 	
-	public EmailReward(int id, String message, String subject, String trigger, String recipients) {
-	    this.id.set(id);
-	    this.message = new SimpleStringProperty(message);
-	    this.subject = new SimpleStringProperty(subject);
-	    this.triggerOpt = new SimpleStringProperty(trigger);
-	    this.recipients = Arrays.asList(recipients.split(","));
-	}
-
-	
 	public SimpleStringProperty getMessage() {
 		return message;
 	}
@@ -53,18 +42,6 @@ public class EmailReward {
 	}
 	public void setSubject(SimpleStringProperty subject) {
 		this.subject = subject;
-	}
-
-	public int getId() {
-		return id.get();
-	}
-
-	public SimpleIntegerProperty idProperty() {
-		return id;
-	}
-
-	public void setId(int id) {
-		this.id.set(id);
 	}
 
 	@Override

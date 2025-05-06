@@ -7,31 +7,29 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-
 @Service
-public class EmailService{
-	@Autowired
-	private JavaMailSender mailSender;
+public class EmailService {
+    @Autowired
+    private JavaMailSender mailSender;
 
-	public void sendEmailToAll(List<String> recipients, String messageBody){
-		SimpleMailMessage message = new SimpleMailMessage();
-		message.setFrom("introtojava2025@gmail.com");
-		message.setSubject("Test");
-		message.setText(messageBody);
+    public void sendEmailToAll(List<String> recipients, String subject, String messageBody) {
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom("introtojava2025@gmail.com");
+        message.setSubject(subject);
+        message.setText(messageBody);
 
-		for (String recipient : recipients){
-			message.setTo(recipient);
-			mailSender.send(message);
-		}
-	}
+        for (String recipient : recipients) {
+            message.setTo(recipient);
+            mailSender.send(message);
+        }
+    }
 
-    public void sendEmailToOne(String recipient, String messageBody) {
+    public void sendEmailToOne(String recipient, String subject, String messageBody) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom("introtojava2025@gmail.com");
         message.setTo(recipient);
-        message.setSubject("Test");
+        message.setSubject(subject);
         message.setText(messageBody);
         mailSender.send(message);
     }
-
 }
