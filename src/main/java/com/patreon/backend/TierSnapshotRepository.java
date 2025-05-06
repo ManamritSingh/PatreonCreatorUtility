@@ -8,4 +8,9 @@ import java.util.List;
 public interface TierSnapshotRepository extends JpaRepository<TierSnapshot, Long> {
     List<TierSnapshot> findByTimestamp(LocalDate timestamp);
     List<TierSnapshot> findByIsMock(boolean isMock);
+
+    boolean existsByTierNameAndTimestampAndIsMock(String tierName, String timestamp, boolean isMock);
+//    boolean existsByTierNameAndTimestamp(String tierName, LocalDate timestamp);
+
+
 }

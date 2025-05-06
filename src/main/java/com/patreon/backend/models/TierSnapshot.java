@@ -1,5 +1,7 @@
 package com.patreon.backend.models;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import javax.persistence.*;
 import java.time.LocalDate;
 
@@ -14,7 +16,8 @@ public class TierSnapshot {
     private String tierName;
     private int patronCount;
     private double revenueDollars;
-    private LocalDate timestamp;
+    @Column(name = "timestamp")
+    private String timestamp;
 
     private boolean isMock;  // true = mock, false = real
 
@@ -26,7 +29,7 @@ public class TierSnapshot {
         this.tierName = tierName;
         this.patronCount = patronCount;
         this.revenueDollars = revenueDollars;
-        this.timestamp = timestamp;
+        this.timestamp = timestamp.toString();
         this.isMock = isMock;
     }
 
@@ -64,12 +67,12 @@ public class TierSnapshot {
         this.revenueDollars = revenueDollars;
     }
 
-    public LocalDate getTimestamp() {
+    public String getTimestamp() {
         return timestamp;
     }
 
     public void setTimestamp(LocalDate timestamp) {
-        this.timestamp = timestamp;
+        this.timestamp = timestamp.toString();
     }
 
     public boolean isMock() {

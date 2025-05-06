@@ -31,17 +31,26 @@ public class MockDataGenerator {
         Random random = new Random();
 
         for (Tier tier : tiers) {
-            int patrons = random.nextInt(100); // 0 to 99
-            double revenue = patrons * (5 + random.nextInt(20)); // between $5–$25 per patron
+            String tierName = (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle();
+
+            boolean exists = repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(),true);
+            if (exists) {
+                System.out.println("Skipping duplicate for tier: " + tierName + " on " + date);
+                continue;
+            }
+
+            int patrons = random.nextInt(100);
+            double revenue = patrons * (5 + random.nextInt(20));
 
             snapshots.add(new TierSnapshot(
-                    (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle(),
+                    tierName,
                     patrons,
                     revenue,
                     date,
-                    true // isMock
+                    true
             ));
         }
+
 
         repo.saveAll(snapshots);
         System.out.println("✅ Mock data generated for " + label + " on " + date);

@@ -66,6 +66,21 @@ public class DataSeeder {
                     }
                 }
 
+                // ❌ If any tier already has data for today, abort the entire operation
+                boolean alreadyExists = tiers.stream().anyMatch(tier ->
+                        snapshotRepository.existsByTierNameAndTimestampAndIsMock(
+                                tier.getTitle() == null ? "Untitled Tier" : tier.getTitle(),
+                                today.toString(),
+                                false
+                        )
+                );
+
+                if (alreadyExists) {
+                    System.out.println("⚠️ Tier snapshot data already exists for today. Skipping real data seeding.");
+                    return;
+                }
+
+                // ✅ Generate and store fresh snapshot data
                 List<TierSnapshot> snapshots = new ArrayList<>();
                 for (Tier tier : tiers) {
                     int patrons = patronCounts.getOrDefault(tier.getId(), 0);
@@ -83,6 +98,7 @@ public class DataSeeder {
                 snapshotRepository.saveAll(snapshots);
                 System.out.println("✅ Saved real members to database!");
             }
+
 
         } catch (Exception e) {
             System.err.println("❌ Data seeding failed: " + e.getMessage());
