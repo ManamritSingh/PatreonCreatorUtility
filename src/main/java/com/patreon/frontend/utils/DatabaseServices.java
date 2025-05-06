@@ -339,7 +339,7 @@ public class DatabaseServices {
     }
     
     public void loadRewardsFromDB(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
-    	String query = "SELECT message, subject, trigger, recipients FROM rewards";  // match your actual DB table and columns
+    	String query = "SELECT id, message, subject, trigger, recipients FROM rewards";
 
     	Connection conn = null;
 
@@ -351,11 +351,13 @@ public class DatabaseServices {
 
     		while (rs.next()) {
     			EmailReward entry = new EmailReward(
+    					rs.getInt("id"),
     					rs.getString("message"),
     					rs.getString("subject"),
     					rs.getString("trigger"),
     					rs.getString("recipients")
     			);
+    			
 
     			rewardList.add(entry);
     		}
@@ -381,6 +383,7 @@ public class DatabaseServices {
     public static void createRewardsTable(Connection conn) {
     	String sql = """
                 CREATE TABLE IF NOT EXISTS rewards (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
                     message TEXT, 
                     subject TEXT, 
                     trigger TEXT, 
