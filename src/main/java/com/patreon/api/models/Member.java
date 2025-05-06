@@ -26,7 +26,7 @@ public class Member {
     private String educationLevel;
     private String incomeRange;
     private boolean isFollower;
-    private boolean isTest;
+    private boolean isTest=false;
 
 
     public Member() {}

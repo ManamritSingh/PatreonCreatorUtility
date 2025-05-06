@@ -23,9 +23,22 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 import javafx.stage.Stage;
+//import org.springframework.http.HttpRequest;
 
 import java.io.File;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
 import java.util.*;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.boot.SpringApplication;
+
+
 
 public class FrontendDriver extends Application {
 
@@ -37,6 +50,8 @@ public class FrontendDriver extends Application {
     private final VBox demographicChartBox = new VBox();
 
     private Stage window;
+    private ConfigurableApplicationContext context;
+
 
     private TableView<EarningEntry> earningTable = new TableView<>();
 	private TableView<PostEntry> postTable = new TableView<>();
@@ -61,8 +76,14 @@ public class FrontendDriver extends Application {
         launch(args);
     }
 
+
     @Override
     public void start(Stage primaryStage) {
+        //start spring in a new parallel thread
+        Thread springThread = new Thread(() -> context = SpringApplication.run(com.patreon.backend.DemoApplication.class));
+        springThread.setDaemon(true);
+        springThread.start();
+
         window = primaryStage;
         window.setTitle("Patreon Creator Toolkit");
 
@@ -87,6 +108,15 @@ public class FrontendDriver extends Application {
         Scene scene = new Scene(layout, 960, 600);
         scene.getStylesheets().add(getClass().getResource("/styles/chart-styles.css").toExternalForm());
         window.setScene(scene);
+
+        window.setOnCloseRequest(e -> {
+            if (context != null) {
+                SpringApplication.exit(context, () -> 0);
+            }
+            Platform.exit();
+            System.exit(0);
+        });
+
         window.show();
     }
 
@@ -113,7 +143,19 @@ public class FrontendDriver extends Application {
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
         MenuItem viewUserFile = new MenuItem("User File");
 
-        
+        Menu devMenu = new Menu("Developer");
+
+        MenuItem generateReal = new MenuItem("Generate Real Data");
+        MenuItem generateFake = new MenuItem("Generate Fake Data");
+
+        generateReal.setOnAction(e -> sendGenerateRequest(false));
+        generateFake.setOnAction(e -> sendGenerateRequest(true));
+
+        devMenu.getItems().addAll(generateReal, generateFake);
+        menuBar.getMenus().add(devMenu);
+
+
+
         viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
         viewRetention.setOnAction(e -> openTab("Retention",retentionChartBox));
         viewDemographics.setOnAction(e -> openTab("Demographics",demographicChartBox));
@@ -136,6 +178,25 @@ public class FrontendDriver extends Application {
 
         return menuBar;
     }
+
+    // helper for switch
+
+    private void sendGenerateRequest(boolean useMock) {
+        try {
+            String url = "http://localhost:8080/api/data/generate?mock=" + useMock;
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> System.out.println("✔ Backend: " + response.body()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     // ----------------------------
     // Tab Initialization

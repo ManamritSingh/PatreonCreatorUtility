@@ -5,14 +5,25 @@ import com.patreon.api.TokenResponse;
 import com.patreon.api.TokenStore;
 import com.patreon.api.models.Campaign;
 import com.patreon.api.models.Tier;
-import com.patreon.utils.MockDataGenerator;
+import com.patreon.backend.MockDataGenerator;
 import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.util.List;
 
-public class TestDataGenerator {
-    public static void main(String[] args) {
+@Component
+public class TestDataGenerator implements CommandLineRunner {
+
+    private final MockDataGenerator mockDataGenerator;
+
+    public TestDataGenerator(MockDataGenerator mockDataGenerator) {
+        this.mockDataGenerator = mockDataGenerator;
+    }
+
+    @Override
+    public void run(String... args) {
         try {
             Dotenv dotenv = Dotenv.load();
             String clientId = dotenv.get("CLIENT_ID");
@@ -31,14 +42,14 @@ public class TestDataGenerator {
             Campaign campaign = campaignService.getCampaignWithTiers();
             List<Tier> tiers = campaign.tiers;
 
-            // 🔥 Generate 360 days of historical mock data
             LocalDate today = LocalDate.now();
+
             for (int i = 360; i >= 1; i--) {
                 LocalDate date = today.minusDays(i);
-                MockDataGenerator.generateFakeDataForDate(date, tiers, "historic_data");
+                mockDataGenerator.generateFakeDataForDate(date, tiers, "TestDataGenerator");
             }
 
-            System.out.println("✅ Mock historical data generated under data/historic_data/");
+            System.out.println("✅ 360 days of mock data seeded to database!");
 
         } catch (Exception e) {
             System.err.println("❌ Error generating mock data: " + e.getMessage());

@@ -4,6 +4,7 @@ import org.hibernate.dialect.Dialect;
 import org.hibernate.dialect.function.StandardSQLFunction;
 import org.hibernate.dialect.function.VarArgsSQLFunction;
 import org.hibernate.dialect.function.SQLFunctionTemplate;
+import org.hibernate.dialect.identity.IdentityColumnSupport;
 import org.hibernate.type.StandardBasicTypes;
 
 import java.sql.Types;
@@ -46,6 +47,7 @@ public class SQLiteDialect extends Dialect {
         return "integer";
     }
 
+
     public String getIdentitySelectString() {
         return "select last_insert_rowid()";
     }
@@ -53,5 +55,11 @@ public class SQLiteDialect extends Dialect {
     @Override
     public String getAddColumnString() {
         return "add column";
+    }
+
+    // 🔥 Add this override
+    @Override
+    public IdentityColumnSupport getIdentityColumnSupport() {
+        return new SQLiteIdentityColumnSupport();
     }
 }
