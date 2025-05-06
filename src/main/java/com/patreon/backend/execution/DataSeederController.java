@@ -1,4 +1,4 @@
-package com.patreon.backend.controllers;
+package com.patreon.backend.execution;
 
 import com.patreon.backend.execution.DataSeeder;
 import org.springframework.beans.factory.annotation.Autowired;
