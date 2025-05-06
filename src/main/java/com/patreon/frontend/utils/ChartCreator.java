@@ -1,13 +1,13 @@
 package com.patreon.frontend.utils;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
-import com.patreon.frontend.models.EarningEntry;
-import com.patreon.frontend.models.PostEntry;
-import com.patreon.frontend.models.SurveyEntry;
-import com.patreon.frontend.models.UserEntry;
+import com.patreon.frontend.models.*;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -27,10 +27,7 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.TableView;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.StackPane;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 
 public class ChartCreator {
 	private LineChart<String, Number> monthlyEarningsChart;
@@ -487,4 +484,115 @@ public class ChartCreator {
 
         chart.setData(pieData);
     }
+
+    // 1. Retention Line Chart
+    public LineChart<String, Number> createRetentionLineChart(String interval, List<String> selectedTiers, boolean isMock) {
+        DatabaseServices db = new DatabaseServices();
+        Map<String, Map<LocalDate, Integer>> retentionData = db.getTierRetentionData(interval, isMock);
+
+        LineChart<String, Number> retentionChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
+        retentionChart.setTitle("Patron Retention - " + interval);
+        retentionChart.setMinWidth(1000);
+        HBox.setHgrow(retentionChart, Priority.ALWAYS);
+
+        for (String tier : selectedTiers) {
+            if (!retentionData.containsKey(tier)) continue;
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName(tier);
+            for (Map.Entry<LocalDate, Integer> entry : retentionData.get(tier).entrySet()) {
+                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
+            }
+            retentionChart.getData().add(series);
+        }
+
+        return retentionChart;
+    }
+
+    // 2. Avg Churn Bar Chart
+    public BarChart<String, Number> createAvgChurnChart(String interval, List<String> selectedTiers, boolean isMock) {
+        DatabaseServices db = new DatabaseServices();
+        Map<String, Map<LocalDate, Double>> churnData = db.getAvgChurnRates(interval, isMock);
+
+        BarChart<String, Number> churnChart = new BarChart<>(new CategoryAxis(), new NumberAxis());
+        churnChart.setTitle("Average Churn Rate - " + interval);
+        churnChart.setMinWidth(1000);
+        HBox.setHgrow(churnChart, Priority.ALWAYS);
+
+        for (String tier : selectedTiers) {
+            if (!churnData.containsKey(tier)) continue;
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName(tier);
+            for (Map.Entry<LocalDate, Double> entry : churnData.get(tier).entrySet()) {
+                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
+            }
+            churnChart.getData().add(series);
+        }
+
+        return churnChart;
+    }
+
+    // 3. Weekly Churn Line Chart
+    public LineChart<String, Number> createWeeklyChurnChart(List<String> selectedTiers, boolean isMock) {
+        DatabaseServices db = new DatabaseServices();
+        Map<String, Map<LocalDate, Integer>> churnData = db.getWeeklyChurnData(selectedTiers, isMock);
+
+        LineChart<String, Number> churnWeeklyChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
+        churnWeeklyChart.setTitle("Weekly Churn - Last 15 Weeks");
+        churnWeeklyChart.setMinWidth(1000);
+        HBox.setHgrow(churnWeeklyChart, Priority.ALWAYS);
+
+        for (String tier : selectedTiers) {
+            if (!churnData.containsKey(tier)) continue;
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName(tier);
+            for (Map.Entry<LocalDate, Integer> entry : churnData.get(tier).entrySet()) {
+                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
+            }
+            churnWeeklyChart.getData().add(series);
+        }
+
+        return churnWeeklyChart;
+    }
+
+    private String formatDateLabel(LocalDate date, String interval) {
+        switch (interval.toLowerCase()) {
+            case "monthly":
+                return date.getYear() + "-" + String.format("%02d", date.getMonthValue());
+            case "weekly":
+                return date.getYear() + " W" + date.get( java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear());
+            default:
+                return date.toString(); // daily
+        }
+    }
+
+//    public HBox createWeeklyChurnChart(List<String> selectedTiers) {
+//        Map<String, Map<LocalDate, Integer>> churnData = new DatabaseServices().getWeeklyChurnData(selectedTiers, true);
+//
+//        CategoryAxis xAxis = new CategoryAxis();
+//        NumberAxis yAxis = new NumberAxis();
+//        xAxis.setLabel("Week");
+//        yAxis.setLabel("Churn Count");
+//
+//        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
+//        chart.setTitle("Weekly Patron Churn (Last 15 Weeks)");
+//
+//        for (Map.Entry<String, Map<LocalDate, Integer>> entry : churnData.entrySet()) {
+//            XYChart.Series<String, Number> series = new XYChart.Series<>();
+//            series.setName(entry.getKey());
+//
+//            for (Map.Entry<LocalDate, Integer> dataPoint : entry.getValue().entrySet()) {
+//                String week = dataPoint.getKey().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+//                series.getData().add(new XYChart.Data<>(week, dataPoint.getValue()));
+//            }
+//
+//            chart.getData().add(series);
+//        }
+//
+//        HBox box = new HBox(chart);
+//        box.setPadding(new Insets(10));
+//        return box;
+//    }
+
+
+
 }

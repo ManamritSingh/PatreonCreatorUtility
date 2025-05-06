@@ -22,9 +22,23 @@ import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
 import javafx.stage.Stage;
+//import org.springframework.http.HttpRequest;
 
 import java.io.File;
+import java.net.http.HttpClient;
+import java.net.http.HttpResponse;
+import java.time.LocalDate;
 import java.util.*;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.boot.SpringApplication;
+
+
 
 public class FrontendDriver extends Application {
 
@@ -36,6 +50,8 @@ public class FrontendDriver extends Application {
     private final VBox demographicChartBox = new VBox();
 
     private Stage window;
+    private ConfigurableApplicationContext context;
+
 
     private TableView<EarningEntry> earningTable = new TableView<>();
 	private TableView<PostEntry> postTable = new TableView<>();
@@ -61,8 +77,14 @@ public class FrontendDriver extends Application {
         launch(args);
     }
 
+
     @Override
     public void start(Stage primaryStage) {
+        //start spring in a new parallel thread
+        Thread springThread = new Thread(() -> context = SpringApplication.run(com.patreon.backend.DemoApplication.class));
+        springThread.setDaemon(true);
+        springThread.start();
+
         window = primaryStage;
         window.setTitle("Patreon Creator Toolkit");
 
@@ -85,6 +107,15 @@ public class FrontendDriver extends Application {
         Scene scene = new Scene(layout, 960, 600);
         scene.getStylesheets().add(getClass().getResource("/styles/chart-styles.css").toExternalForm());
         window.setScene(scene);
+
+        window.setOnCloseRequest(e -> {
+            if (context != null) {
+                SpringApplication.exit(context, () -> 0);
+            }
+            Platform.exit();
+            System.exit(0);
+        });
+
         window.show();
     }
 
@@ -111,7 +142,22 @@ public class FrontendDriver extends Application {
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
         MenuItem viewUserFile = new MenuItem("User File");
 
-        
+        Menu devMenu = new Menu("API Data Options");
+
+        MenuItem generateReal = new MenuItem("Fetch Real Data");
+        MenuItem generateFake = new MenuItem("Generate Fake Data");
+        MenuItem generateYearlyFake = new MenuItem("Generate Yearly Fake Data");
+
+        generateReal.setOnAction(e -> sendGenerateRequest(false));
+        generateFake.setOnAction(e -> sendGenerateRequest(true));
+        generateYearlyFake.setOnAction(e -> sendGenerateYearlyRequest());
+
+        devMenu.getItems().add(generateYearlyFake);
+        devMenu.getItems().addAll(generateReal, generateFake);
+        menuBar.getMenus().add(devMenu);
+
+
+
         viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
         viewRetention.setOnAction(e -> openTab("Retention",retentionChartBox));
         viewDemographics.setOnAction(e -> openTab("Demographics",demographicChartBox));
@@ -135,6 +181,41 @@ public class FrontendDriver extends Application {
 
         return menuBar;
     }
+
+    // helper for switch
+
+    private void sendGenerateRequest(boolean useMock) {
+        try {
+            String url = "http://localhost:8080/api/data/generate?mock=" + useMock;
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> System.out.println("✔ Backend: " + response.body()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendGenerateYearlyRequest() {
+        try {
+            String url = "http://localhost:8080/api/data/generate/yearly-fake";
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> System.out.println("✔ Yearly Data: " + response.body()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     // ----------------------------
     // Tab Initialization
@@ -245,8 +326,6 @@ public class FrontendDriver extends Application {
 				HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
                 revenueChartBox.getChildren().setAll(monthlyYearlyEarnings);
 				break;
-			case "Retention":
-				break;
 			case "Demographics":
 				HBox genderDist = cc.createGenderDistributionChart(userData);
                 HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
@@ -258,7 +337,102 @@ public class FrontendDriver extends Application {
 				HBox surveyPie = cc.createSurveyPieChart(surveyData);
                 campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
 				break;
-		}
+            case "Retention":
+                VBox container = new VBox(10);
+                container.setPadding(new Insets(10));
+
+                Label intervalLabel = new Label("Select Interval:");
+                ComboBox<String> intervalBox = new ComboBox<>();
+                intervalBox.getItems().addAll("daily", "weekly", "monthly");
+                intervalBox.setValue("monthly");
+
+                Label tierLabel = new Label("Select Tiers:");
+                HBox tierCheckboxes = new HBox(10);
+                List<String> allTiers = ds.getAllTiers(true);
+                List<CheckBox> checkBoxes = new ArrayList<>();
+                for (String tier : allTiers) {
+                    CheckBox cb = new CheckBox(tier);
+                    cb.setSelected(true);
+                    checkBoxes.add(cb);
+                    tierCheckboxes.getChildren().add(cb);
+                }
+
+                Button updateButton = new Button("Update Retention/Avg Churn Charts");
+
+                Label churnTierLabel = new Label("Select Tiers for Weekly Churn:");
+                HBox churnTierCheckboxes = new HBox(10);
+                List<CheckBox> churnCheckBoxes = new ArrayList<>();
+                for (String tier : allTiers) {
+                    CheckBox cb = new CheckBox(tier);
+                    cb.setSelected(true);
+                    churnCheckBoxes.add(cb);
+                    churnTierCheckboxes.getChildren().add(cb);
+                }
+                Button churnUpdateButton = new Button("Update Weekly Churn Chart");
+
+                // Default charts
+                HBox chart1 = new HBox(cc.createRetentionLineChart("monthly", allTiers, true));
+                HBox chart2 = new HBox(cc.createAvgChurnChart("monthly", allTiers, true));
+                HBox chart3 = new HBox(cc.createWeeklyChurnChart(allTiers, true));
+
+                // Controls for Avg Churn Chart (#2)
+                Label avgChurnLabel = new Label("Select Tiers for Avg Churn:");
+                HBox avgChurnCheckboxes = new HBox(10);
+                List<CheckBox> avgChurnCheckBoxes = new ArrayList<>();
+                for (String tier : allTiers) {
+                    CheckBox cb = new CheckBox(tier);
+                    cb.setSelected(true);
+                    avgChurnCheckBoxes.add(cb);
+                    avgChurnCheckboxes.getChildren().add(cb);
+                }
+                Button avgChurnUpdateButton = new Button("Update Avg Churn Chart");
+
+                // Handler for Chart #2
+                avgChurnUpdateButton.setOnAction(e -> {
+                    List<String> selectedAvgChurnTiers = avgChurnCheckBoxes.stream()
+                            .filter(CheckBox::isSelected)
+                            .map(CheckBox::getText)
+                            .toList();
+                    chart2.getChildren().setAll(cc.createAvgChurnChart(intervalBox.getValue(), selectedAvgChurnTiers, true));
+                });
+
+                VBox chartsArea = new VBox(20,
+                        chart1,
+                        avgChurnLabel,
+                        avgChurnCheckboxes,
+                        avgChurnUpdateButton,
+                        chart2
+                );
+
+                VBox bottomCharts = new VBox(20, chart3);
+
+                // Button handlers
+                updateButton.setOnAction(e -> {
+                    String interval = intervalBox.getValue();
+                    List<String> selectedTiers = checkBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
+                    chart1.getChildren().setAll(cc.createRetentionLineChart(interval, selectedTiers, true));
+                });
+
+
+                churnUpdateButton.setOnAction(e -> {
+                    List<String> selectedChurnTiers = churnCheckBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
+                    chart3.getChildren().setAll(cc.createWeeklyChurnChart(selectedChurnTiers, true));
+                });
+
+                // Layout
+                container.getChildren().addAll(
+                        intervalLabel, intervalBox,
+                        tierLabel, tierCheckboxes,
+                        updateButton,
+                        chartsArea,
+                        churnTierLabel, churnTierCheckboxes,
+                        churnUpdateButton,
+                        bottomCharts
+                );
+
+                retentionChartBox.getChildren().setAll(container);
+                break;
+        }
 	}
  
     private void initializeTables() {
