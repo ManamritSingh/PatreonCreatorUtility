@@ -31,7 +31,6 @@ com/patreon/backend/SQLiteDialect.class
 com/patreon/backend/TierSnapshotRepository.class
 com/patreon/api/OAuthRedirectServer.class
 com/patreon/backend/DataInitializer.class
-com/patreon/utils/DatabaseUtils.class
 com/patreon/frontend/FrontendDriver.class
 com/patreon/utils/DatabaseExporter.class
 com/patreon/backend/EmailController.class

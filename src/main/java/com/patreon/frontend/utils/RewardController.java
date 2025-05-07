@@ -1,15 +1,20 @@
 package com.patreon.frontend.utils;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.StringJoiner;
 
 import com.patreon.frontend.models.EmailReward;
 import com.patreon.utils.DatabaseConnection;
-import com.patreon.utils.DatabaseUtils;
 
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.ObservableList;
@@ -95,11 +100,29 @@ public class RewardController {
                 alert.showAndWait();
                 return;
             }
+            
+            if ("Send Now".equals(trigger)) {
+                List<String> selectedTiers = new ArrayList<>();
+                if (everyone.isSelected()) selectedTiers.add("All");
+                if (tier1.isSelected()) selectedTiers.add("1");
+                if (tier2.isSelected()) selectedTiers.add("2");
+                if (tier3.isSelected()) selectedTiers.add("3");
+
+                boolean success = sendEmail(subject, message, selectedTiers);
+
+                Alert alert1 = new Alert(success 
+                    ? Alert.AlertType.INFORMATION 
+                    : Alert.AlertType.ERROR,
+                    success ? "Emails sent successfully." : "Failed to send emails.",
+                    ButtonType.OK
+                );
+                alert1.showAndWait();
+            }
 
             EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients);
             rewardList.add(reward);
             try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseUtils.saveRewardToDatabase(conn, reward);
+                DatabaseServices.saveRewardToDatabase(conn, reward);
                 System.out.println("Reward saved successfully.");
             } catch (SQLException e1) {
                 e1.printStackTrace();
@@ -171,5 +194,35 @@ public class RewardController {
 	        alert.showAndWait();
 	    }
 	}
+	
+	public static boolean sendEmail(String subject, String message, List<String> selectedTiers) {
+        try {
+            URL url = new URL("http://localhost:8080/send-email"); // Adjust if needed
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setDoOutput(true);
+            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+
+            StringJoiner sj = new StringJoiner("&");
+            sj.add("subject=" + URLEncoder.encode(subject, "UTF-8"));
+            sj.add("messageBody=" + URLEncoder.encode(message, "UTF-8"));
+
+            for (String tier : selectedTiers) {
+                sj.add("selectedTiers=" + URLEncoder.encode(tier, "UTF-8"));
+            }
+
+            byte[] out = sj.toString().getBytes(StandardCharsets.UTF_8);
+            OutputStream os = conn.getOutputStream();
+            os.write(out);
+
+            int responseCode = conn.getResponseCode();
+            conn.disconnect();
+            return responseCode == HttpURLConnection.HTTP_OK;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }
 

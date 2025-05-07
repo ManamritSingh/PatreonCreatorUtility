@@ -94,6 +94,7 @@ public class FrontendDriver extends Application {
         layout.setCenter(tabPane);
 
         // Initialize tabs,tables, and charts
+        
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
@@ -588,5 +589,4 @@ public class FrontendDriver extends Application {
         // In a real application, you'd check which tab is selected
         return "Revenue";  // Return a dummy value for now
     }
-
 }
