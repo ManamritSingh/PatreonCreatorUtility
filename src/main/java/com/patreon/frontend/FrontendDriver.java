@@ -542,11 +542,30 @@ public class FrontendDriver extends Application {
             String userMessage = userInput.getText();
             if (!userMessage.trim().isEmpty()) {
                 chatHistory.getChildren().add(createUserMessage(userMessage));
-                chatHistory.getChildren().add(createChatbotResponse(
-                    "You are currently viewing the " + getSelectedTabName() + " tab."
-                ));
+
+                new Thread(() -> {
+                    try {
+                        HttpClient client = HttpClient.newHttpClient();
+                        HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create("http://localhost:8080/api/chat"))
+                                .header("Content-Type", "application/json")
+                                .POST(HttpRequest.BodyPublishers.ofString(userMessage))
+                                .build();
+
+                        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                        String botReply = response.body();
+
+                        Platform.runLater(() -> {
+                            chatHistory.getChildren().add(createChatbotResponse(botReply));
+                            scrollPane.setVvalue(1.0);
+                        });
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        Platform.runLater(() -> chatHistory.getChildren().add(createChatbotResponse("⚠️ Error contacting AI")));
+                    }
+                }).start();
+
                 userInput.clear();
-                scrollPane.setVvalue(1.0);
             }
         });
 

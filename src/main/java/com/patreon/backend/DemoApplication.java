@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.domain.EntityScan;
 import io.github.cdimascio.dotenv.Dotenv;
 
 @SpringBootApplication
-@EntityScan(basePackages = {"com.patreon.api.models", "com.patreon.backend.models", "com.patreon.utils"})
+@EntityScan(basePackages = {"com.patreon.api.models", "com.patreon.backend.models", "com.patreon.utils","com.patreon.backend.chatbot"})
 public class DemoApplication {
 
     static {
