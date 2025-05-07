@@ -1,11 +1,14 @@
 package com.patreon.frontend.utils;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.time.Month;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import com.patreon.frontend.models.*;
 
@@ -23,6 +26,8 @@ import javafx.scene.chart.StackedBarChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TableView;
 import javafx.scene.control.ToggleGroup;
@@ -30,8 +35,6 @@ import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
 
 public class ChartCreator {
-	private LineChart<String, Number> monthlyEarningsChart;
-    private LineChart<String, Number> yearlyEarningsChart;
     
     private StackedBarChart<String, Number> postSBC;
     
@@ -59,6 +62,18 @@ public class ChartCreator {
             double value = entry.getEarnings().get();
             series.getData().add(new XYChart.Data<>(label, value));
         }
+        return series;
+    }
+    
+    private XYChart.Series<String, Number> buildMonthlySeriesForYear(List<EarningEntry> entries) {
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        entries.stream()
+        .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber))
+        .forEach(entry -> {
+            String label = entry.getMonthValue().substring(0, 3); // Still use short label
+            series.getData().add(new XYChart.Data<>(label, entry.getEarnings().get()));
+        });
+
         return series;
     }
 
@@ -142,9 +157,27 @@ public class ChartCreator {
     }
     
     public HBox createMonthlyYearlyEarnings(TableView<EarningEntry> earningTable) {
-    	HBox window = new HBox(10); // Add spacing between toggle and chart
-    	XYChart.Series<String, Number> monthlyEarningsSeries = new XYChart.Series<>();
-        XYChart.Series<String, Number> yearlyEarningsSeries = new XYChart.Series<>();
+        HBox window = new HBox(10);
+        VBox controlBox = new VBox(10);
+        controlBox.setAlignment(Pos.TOP_LEFT);
+        controlBox.setPadding(new Insets(10));
+
+        // Group data by year
+        Map<Integer, List<EarningEntry>> earningsByYear = earningTable.getItems()
+                .stream()
+                .collect(Collectors.groupingBy(EarningEntry::getYearValue));
+
+        // Year selection ComboBox with "All" first, then years in descending order
+        ComboBox<String> yearSelector = new ComboBox<>();
+        List<String> years = earningsByYear.keySet().stream()
+                .sorted(Comparator.reverseOrder()) // Sort descending: most recent first
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+
+        years.add(0, "All"); // Add "All" at the top
+        yearSelector.getItems().addAll(years);
+        yearSelector.getSelectionModel().selectFirst(); // Default to "All"
+
 
         // Create toggle buttons
         RadioButton monthlyButton = new RadioButton("Monthly");
@@ -152,37 +185,46 @@ public class ChartCreator {
         ToggleGroup viewToggle = new ToggleGroup();
         monthlyButton.setToggleGroup(viewToggle);
         yearlyButton.setToggleGroup(viewToggle);
-        monthlyButton.setSelected(true); // Default view is monthly
+        monthlyButton.setSelected(true);
 
-        VBox toggleBox = new VBox(10, monthlyButton, yearlyButton);
-        toggleBox.setAlignment(Pos.TOP_LEFT);
-        toggleBox.setPadding(new Insets(10));
+        controlBox.getChildren().addAll(new Label("Select Year:"), yearSelector, monthlyButton, yearlyButton);
 
-        // Build data series and charts
-        monthlyEarningsSeries = buildMonthlyEarningsSeries(earningTable);
-        yearlyEarningsSeries = buildYearlyEarningsSeries(earningTable);
+        // Initial series and charts
+        XYChart.Series<String, Number> monthlySeries = buildMonthlyEarningsSeries(earningTable); // "All" by default
+        XYChart.Series<String, Number> yearlySeries = buildYearlyEarningsSeries(earningTable);
 
-        monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
-        yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
+        LineChart<String, Number> monthlyChart = createLineChart("Monthly Earnings (All Years)", monthlySeries);
+        LineChart<String, Number> yearlyChart = createLineChart("Yearly Earnings", yearlySeries);
 
-        // Wrap the chart in a Region to allow resizing
-        StackPane chartPane = new StackPane(monthlyEarningsChart);
-        chartPane.setMaxWidth(Double.MAX_VALUE);
+        StackPane chartPane = new StackPane(monthlyChart);
         HBox.setHgrow(chartPane, Priority.ALWAYS);
 
-        // Toggle between charts
-        viewToggle.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
-            if (newToggle == monthlyButton) {
-                chartPane.getChildren().setAll(monthlyEarningsChart);
-            } else if (newToggle == yearlyButton) {
-                chartPane.getChildren().setAll(yearlyEarningsChart);
+        // Year selector listener
+        yearSelector.setOnAction(e -> {
+            String selected = yearSelector.getValue();
+            if ("All".equals(selected)) {
+                XYChart.Series<String, Number> allSeries = buildMonthlyEarningsSeries(earningTable);
+                monthlyChart.getData().setAll(allSeries);
+                monthlyChart.setTitle("Monthly Earnings (All Years)");
+            } else {
+                int selectedYear = Integer.parseInt(selected);
+                XYChart.Series<String, Number> newSeries = buildMonthlySeriesForYear(earningsByYear.get(selectedYear));
+                monthlyChart.getData().setAll(newSeries);
+                monthlyChart.setTitle("Monthly Earnings (" + selected + ")");
             }
         });
 
-        window.getChildren().setAll(toggleBox, chartPane);
-        window.setPadding(new Insets(10));
-        HBox.setHgrow(window, Priority.ALWAYS);
+        // Chart toggle listener
+        viewToggle.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == monthlyButton) {
+                chartPane.getChildren().setAll(monthlyChart);
+            } else if (newToggle == yearlyButton) {
+                chartPane.getChildren().setAll(yearlyChart);
+            }
+        });
 
+        window.getChildren().addAll(controlBox, chartPane);
+        window.setPadding(new Insets(10));
         return window;
     }
 
@@ -565,6 +607,7 @@ public class ChartCreator {
         }
     }
 
+
 //    public HBox createWeeklyChurnChart(List<String> selectedTiers) {
 //        Map<String, Map<LocalDate, Integer>> churnData = new DatabaseServices().getWeeklyChurnData(selectedTiers, true);
 //
@@ -592,6 +635,77 @@ public class ChartCreator {
 //        box.setPadding(new Insets(10));
 //        return box;
 //    }
+    
+    public HBox createGrossVsNetChart(List<EarningEntry> entries) {
+        // Group by year
+        Map<Integer, List<EarningEntry>> earningsByYear = entries.stream()
+            .collect(Collectors.groupingBy(EarningEntry::getYearValue));
+
+        List<String> yearOptions = earningsByYear.keySet().stream()
+            .sorted(Comparator.reverseOrder()) // Recent first
+            .map(String::valueOf)
+            .collect(Collectors.toList());
+        yearOptions.add(0, "All"); // Add "All" at the top
+
+        // ComboBox for year selection
+        ComboBox<String> yearSelector = new ComboBox<>();
+        yearSelector.getItems().addAll(yearOptions);
+        yearSelector.getSelectionModel().selectFirst(); // Default to "All"
+
+        // Chart and container
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
+        chart.setTitle("Total Revenue vs. Net Earnings");
+        chart.setLegendVisible(true);
+        chart.setAnimated(false);
+        chart.setCreateSymbols(true);
+        chart.setStyle("-fx-background-color: white;");
+
+        // Create chart data function
+        Runnable updateChart = () -> {
+            String selected = yearSelector.getValue();
+            List<EarningEntry> filtered = selected.equals("All")
+                ? entries
+                : earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+
+            XYChart.Series<String, Number> grossSeries = new XYChart.Series<>();
+            grossSeries.setName("Total Revenue");
+
+            XYChart.Series<String, Number> netSeries = new XYChart.Series<>();
+            netSeries.setName("Net Earnings");
+
+            filtered.stream()
+                .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber)) // You’ll need this method
+                .forEach(entry -> {
+                    String label = entry.getMonthValue().substring(0, 3); // "Jan", "Feb", etc.
+                    grossSeries.getData().add(new XYChart.Data<>(label, entry.getTotalValue()));
+                    netSeries.getData().add(new XYChart.Data<>(label, entry.getEarningsValue()));
+                });
+
+            chart.getData().setAll(grossSeries, netSeries);
+        };
+
+        // Initial chart build
+        updateChart.run();
+
+        // Listener to update when year changes
+        yearSelector.setOnAction(e -> updateChart.run());
+
+        VBox controlPanel = new VBox(10, new Label("Select Year:"), yearSelector);
+        controlPanel.setPadding(new Insets(10));
+        controlPanel.setAlignment(Pos.TOP_LEFT);
+
+        StackPane chartPane = new StackPane(chart);
+        HBox.setHgrow(chartPane, Priority.ALWAYS);
+
+        HBox container = new HBox(10, controlPanel, chartPane);
+        container.setPadding(new Insets(10));
+
+        return container;
+    }
+
+
 
 
 
