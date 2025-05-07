@@ -324,7 +324,8 @@ public class FrontendDriver extends Application {
 		switch(section) {
 			case "Revenue":
 				HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
-                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings);
+				HBox netGrossChart = cc.createGrossVsNetChart(earningData);
+                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings, new Separator(), netGrossChart);
 				break;
 			case "Demographics":
 				HBox genderDist = cc.createGenderDistributionChart(userData);
