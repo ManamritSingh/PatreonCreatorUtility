@@ -1,6 +1,7 @@
 package com.patreon.frontend.utils;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -11,6 +12,7 @@ import com.patreon.utils.DatabaseConnection;
 import com.patreon.utils.DatabaseUtils;
 
 import javafx.beans.property.SimpleStringProperty;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -132,24 +134,42 @@ public class RewardController {
         popupStage.showAndWait();
     }
 	
-	public void deleteSelectedReward(TableView<EmailReward> rewardsTable, List<EmailReward> rewardList) {
-        EmailReward selected = rewardsTable.getSelectionModel().getSelectedItem();
-        if (selected != null) {
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, 
-                                      "Are you sure you want to delete this reward?", 
-                                      ButtonType.YES, ButtonType.NO);
-            confirm.setHeaderText("Confirm Delete");
-            Optional<ButtonType> result = confirm.showAndWait();
-            if (result.isPresent() && result.get() == ButtonType.YES) {
-                rewardList.remove(selected);
-            }
-        } else {
-            Alert alert = new Alert(Alert.AlertType.WARNING, 
-                                    "Please select a reward to delete.", 
-                                    ButtonType.OK);
-            alert.setHeaderText("No Selection");
-            alert.showAndWait();
-        }
-    }
+	public void deleteSelectedReward(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
+	    EmailReward selected = rewardsTable.getSelectionModel().getSelectedItem();
+	    if (selected != null) {
+	        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+	                "Are you sure you want to delete this reward?",
+	                ButtonType.YES, ButtonType.NO);
+	        confirm.setHeaderText("Confirm Delete");
+	        Optional<ButtonType> result = confirm.showAndWait();
+	        
+	        if (result.isPresent() && result.get() == ButtonType.YES) {
+	            // Delete from database
+	            String deleteSQL = "DELETE FROM rewards WHERE id = ?";
+	            try (Connection conn = DatabaseConnection.getConnection();
+	                 PreparedStatement stmt = conn.prepareStatement(deleteSQL)) {
+
+	                stmt.setInt(1, selected.getId());
+	                int rowsDeleted = stmt.executeUpdate();
+
+	                if (rowsDeleted > 0) {
+	                    rewardList.remove(selected);
+	                    System.out.println("Reward deleted successfully.");
+	                } else {
+	                    System.out.println("No reward found with that ID.");
+	                }
+
+	            } catch (SQLException e) {
+	                e.printStackTrace();
+	            }
+	        }
+	    } else {
+	        Alert alert = new Alert(Alert.AlertType.WARNING,
+	                "Please select a reward to delete.",
+	                ButtonType.OK);
+	        alert.setHeaderText("No Selection");
+	        alert.showAndWait();
+	    }
+	}
 }
 
