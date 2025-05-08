@@ -94,6 +94,7 @@ public class RewardController {
             String message = messageArea.getText();
             SimpleStringProperty messageText = new SimpleStringProperty(message);
             SimpleStringProperty triggerText = new SimpleStringProperty(trigger);
+            SimpleStringProperty statusText = new SimpleStringProperty("");
             
             if (subject.isBlank() || recipients.isEmpty()) {
                 Alert alert = new Alert(Alert.AlertType.WARNING, "Please enter a subject and select at least one recipient.", ButtonType.OK);
@@ -118,8 +119,8 @@ public class RewardController {
                 );
                 alert1.showAndWait();
             }
-
-            EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients);
+            
+            EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients, statusText);
             rewardList.add(reward);
             try (Connection conn = DatabaseConnection.getConnection()) {
                 DatabaseServices.saveRewardToDatabase(conn, reward);

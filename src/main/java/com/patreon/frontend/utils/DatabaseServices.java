@@ -345,7 +345,7 @@ public class DatabaseServices {
     }
     
     public void loadRewardsFromDB(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
-    	String query = "SELECT id, message, subject, trigger, recipients FROM rewards";
+    	String query = "SELECT id, message, subject, trigger, recipients, status FROM rewards";
 
     	Connection conn = null;
 
@@ -361,7 +361,8 @@ public class DatabaseServices {
     					rs.getString("message"),
     					rs.getString("subject"),
     					rs.getString("trigger"),
-    					rs.getString("recipients")
+    					rs.getString("recipients"),
+    					rs.getString("status")
     					
     			);
 
@@ -394,7 +395,8 @@ public class DatabaseServices {
                     message TEXT, 
                     subject TEXT, 
                     trigger TEXT, 
-                    recipients TEXT
+                    recipients TEXT,
+                    status TEXT
                 )
                 """;
 
@@ -620,14 +622,15 @@ public class DatabaseServices {
     }
     
     public static void saveRewardToDatabase(Connection connection, EmailReward reward) {
-    	String sql = "INSERT INTO rewards (message, subject, trigger, recipients) VALUES (?, ?, ?, ?)";
+    	String sql = "INSERT INTO rewards (message, subject, trigger, recipients, status) VALUES (?, ?, ?, ?, ?)";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, reward.getMessage().get());
             stmt.setString(2, reward.getSubject().get());
             stmt.setString(3, reward.getTriggerOpt().get());
             stmt.setString(4, String.join(",", reward.getRecepients())); // Serialize list to CSV
-
+            stmt.setString(5, reward.getStatus().get());
+            
             stmt.executeUpdate();
             System.out.println("Reward saved to database.");
         } catch (SQLException e) {
@@ -642,6 +645,7 @@ public class DatabaseServices {
             stmt.setString(1, reward.getMessage().get());
             stmt.setString(2, reward.getSubject().get());
             stmt.setString(3, reward.getTriggerOpt().get());
+            stmt.setString(4, reward.getStatus().get());
 
             int rowsDeleted = stmt.executeUpdate();
             System.out.println(rowsDeleted + " reward(s) deleted from database.");
@@ -788,7 +792,7 @@ public class DatabaseServices {
 
 	            LocalDate periodDate;
 	            try {
-	                System.out.println("Parsing period: " + period);  // Debugging line
+	                //sSystem.out.println("Parsing period: " + period);  // Debugging line
 	                if ("weekly".equals(interval)) {
 	                    String[] parts = period.split("-");
 	                    int year = Integer.parseInt(parts[0]);
@@ -854,7 +858,7 @@ public class DatabaseServices {
 	                    int diff = weekMap.get(currentWeek) - weekMap.get(prevWeek);
 
 	                    try {
-	                        System.out.println("Prev week: " + prevWeek + ", Current week: " + currentWeek + ", Churn: " + diff);  // Debugging line
+	                        //System.out.println("Prev week: " + prevWeek + ", Current week: " + currentWeek + ", Churn: " + diff);  // Debugging line
 	                        String[] parts = currentWeek.split("-");
 	                        int year = Integer.parseInt(parts[0]);
 	                        int week = Integer.parseInt(parts[1]);

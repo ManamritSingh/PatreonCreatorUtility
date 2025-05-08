@@ -30,7 +30,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.*;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -77,7 +77,6 @@ public class FrontendDriver extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-
 
     @Override
     public void start(Stage primaryStage) {
@@ -325,38 +324,60 @@ public class FrontendDriver extends Application {
 				HBox surveyPie = cc.createSurveyPieChart(surveyData);
                 campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
 				break;
-            case "Retention":
-                HBox dataGenBanner = new HBox(5);
-                dataGenBanner.setPadding(new Insets(5));
-                dataGenBanner.setStyle("-fx-background-color: #f0f0f0;");
-                dataGenBanner.setAlignment(Pos.CENTER_LEFT);
-                dataGenBanner.setMaxWidth(Double.MAX_VALUE);
-                
-                Region spacer = new Region();
-                HBox.setHgrow(spacer, Priority.ALWAYS);
-                
-                Label header = new Label("Due to lack of real data, please use "
-                		+ "generated fake data for chart demo:");
-                
-                Button realData = new Button("Show Real Data");
-                Button fakeData = new Button("Show Fake Data");
-                
-                realData.setOnAction(e -> sendGenerateRequest(false));
-                fakeData.setOnAction(e -> sendGenerateYearlyRequest());
-                
-                dataGenBanner.getChildren().addAll(header, spacer, realData, fakeData);
-                
-                HBox chart1 = cc.createRetentionLineChart("monthly", allTiers, true);
-                System.out.println("Chart1: finished");
-                HBox chart2 = cc.createAvgChurnChart("monthly", allTiers, true);
-                System.out.println("Chart2: finished");
-                HBox chart3 = cc.createWeeklyChurnChart(allTiers, true);
-                System.out.println("Chart3: finished");
+			case "Retention":
+			    HBox dataGenBanner = new HBox(5);
+			    dataGenBanner.setPadding(new Insets(5));
+			    dataGenBanner.setStyle("-fx-background-color: #f0f0f0;");
+			    dataGenBanner.setAlignment(Pos.CENTER_LEFT);
+			    dataGenBanner.setMaxWidth(Double.MAX_VALUE);
+			    
+			    Region spacer = new Region();
+			    HBox.setHgrow(spacer, Priority.ALWAYS);
+			    
+			    Label header = new Label("Due to lack of real data, please use generated fake data for chart demo:");
+			    
+			    Button realDataButton = new Button("Show Real Data");
+			    Button fakeDataButton = new Button("Show Fake Data");
+			    
+			    // Track the data type (real or fake)
+			    AtomicBoolean isMock = new AtomicBoolean(true);  // Default to fake data
 
-                retentionChartBox.getChildren().setAll(dataGenBanner, chart1, new Separator(), 
-                		chart2, new Separator(), chart3);
-                System.out.println("RetentionBox made");
-                break;
+			    // Chart containers
+			    HBox chart1 = new HBox();
+			    HBox chart2 = new HBox();
+			    HBox chart3 = new HBox();
+
+			    // Method to update all charts based on data type
+			    Runnable updateCharts = () -> {
+			        chart1.getChildren().setAll(cc.createRetentionLineChart("monthly", allTiers, isMock.get()));
+			        chart2.getChildren().setAll(cc.createAvgChurnChart("monthly", allTiers, isMock.get()));
+			        chart3.getChildren().setAll(cc.createWeeklyChurnChart(allTiers, isMock.get()));
+			    };
+
+			    // Button actions
+			    realDataButton.setOnAction(e -> {
+			        isMock.set(false);
+			        sendGenerateRequest(false); // Use real data
+			        updateCharts.run();
+			        realDataButton.setStyle("-fx-font-weight: bold;");
+			        fakeDataButton.setStyle("");
+			    });
+
+			    fakeDataButton.setOnAction(e -> {
+			        isMock.set(true);
+			        sendGenerateYearlyRequest(); // Generate fake data
+			        updateCharts.run();
+			        fakeDataButton.setStyle("-fx-font-weight: bold;");
+			        realDataButton.setStyle("");
+			    });
+
+			    // Initialize with fake data
+			    updateCharts.run();
+			    fakeDataButton.setStyle("-fx-font-weight: bold;"); // Start with fake data highlighted
+
+			    dataGenBanner.getChildren().addAll(header, spacer, realDataButton, fakeDataButton);
+			    retentionChartBox.getChildren().setAll(dataGenBanner, chart1, new Separator(), chart2, new Separator(), chart3);
+			    break;
         }
 	}
  

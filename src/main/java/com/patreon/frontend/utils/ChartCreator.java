@@ -576,12 +576,12 @@ public class ChartCreator {
 
         // Keep a map of tier -> series
         Map<String, XYChart.Series<String, Number>> seriesMap = new LinkedHashMap<>();
-        
+
         // Function to reload data for the selected interval
         Runnable refreshData = () -> {
             seriesMap.clear();
             String selectedInterval = intervalBox.getValue().toLowerCase();
-            
+
             DateTimeFormatter formatter = switch (selectedInterval) {
                 case "Weekly" -> DateTimeFormatter.ofPattern("'W'w YYYY");
                 case "Yearly" -> DateTimeFormatter.ofPattern("yyyy");
@@ -589,8 +589,9 @@ public class ChartCreator {
                 default -> DateTimeFormatter.ofPattern("yyyy-MM-dd");
             };
 
-           Map<String, Map<LocalDate, Integer>> retentionData = ds.getTierRetentionData(selectedInterval, isMock);
-            
+            // Fetch the appropriate data (real or fake) based on `isMock`
+            Map<String, Map<LocalDate, Integer>> retentionData = ds.getTierRetentionData(selectedInterval, isMock);
+
             for (String tier : allTiers) {
                 XYChart.Series<String, Number> series = new XYChart.Series<>();
                 series.setName(tier);
@@ -603,7 +604,7 @@ public class ChartCreator {
                 seriesMap.put(tier, series);
             }
         };
-        System.out.println("Retention");
+
         Runnable updateChart = () -> {
             retentionChart.getData().clear();
             for (CheckBox cb : checkBoxes) {
@@ -635,22 +636,20 @@ public class ChartCreator {
 
     // 2. Avg Churn Bar Chart
     public HBox createAvgChurnChart(String interval, List<String> allTiers, boolean isMock) {
-        // Fetch churn data
-    	DatabaseServices ds = new DatabaseServices();
+        DatabaseServices ds = new DatabaseServices();
         Map<String, Map<LocalDate, Double>> churnData = ds.getAvgChurnRates(interval, isMock);
-        System.out.println("Churn Data: " + churnData); // Print the churn data
 
         if (churnData == null || churnData.isEmpty()) {
             System.out.println("No churn data available.");
             return new HBox(); // Return empty if data is not available
         }
-        
+
         // Control box for checkboxes
         VBox controlBox = new VBox(10);
         controlBox.setPadding(new Insets(10));
         Label avgChurnLabel = new Label("Select Tiers:");
         controlBox.getChildren().add(avgChurnLabel);
-        
+
         // Create the LineChart
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
@@ -658,7 +657,7 @@ public class ChartCreator {
         churnChart.setTitle("Average Churn Rate - " + interval);
         churnChart.setMinWidth(600);
         HBox.setHgrow(churnChart, Priority.ALWAYS);
-        
+
         // Create checkboxes for each tier
         List<CheckBox> checkBoxes = new ArrayList<>();
         for (String tier : allTiers) {
@@ -666,25 +665,23 @@ public class ChartCreator {
             cb.setSelected(true);  // Default to checked
             checkBoxes.add(cb);
             controlBox.getChildren().add(cb);
-            
+
             // Add a listener to update the chart when the checkbox is clicked
             cb.setOnAction(e -> updateAvgChurnChart(churnChart, checkBoxes, churnData));
         }
 
         // Initial population of the chart
-        System.out.println("Start updateAvgChurnChart"); 
         updateAvgChurnChart(churnChart, checkBoxes, churnData);
-        System.out.println("Finished updateAvgChurnChart"); 
+
         // Layout
         HBox layout = new HBox(20, controlBox, churnChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.TOP_LEFT);
         HBox.setHgrow(layout, Priority.ALWAYS);
         layout.setMaxWidth(Double.MAX_VALUE);
-        
+
         return layout;
     }
-
 
     // Helper function to update the chart
     private void updateAvgChurnChart(LineChart<String, Number> churnChart, List<CheckBox> checkBoxes, Map<String, Map<LocalDate, Double>> churnData) {
@@ -712,21 +709,20 @@ public class ChartCreator {
 
     // 3. Weekly Churn Line Chart
     public HBox createWeeklyChurnChart(List<String> allTiers, boolean isMock) {
-    	DatabaseServices ds = new DatabaseServices();
-    	Map<String, Map<LocalDate, Integer>> churnData = ds.getWeeklyChurnData(allTiers, isMock);
-    	System.out.println("Weekly Churn Data: " + churnData); // Print the weekly churn data
+        DatabaseServices ds = new DatabaseServices();
+        Map<String, Map<LocalDate, Integer>> churnData = ds.getWeeklyChurnData(allTiers, isMock);
 
         if (churnData == null || churnData.isEmpty()) {
             System.out.println("No weekly churn data available.");
             return new HBox(); // Return empty if data is not available
         }
-        
+
         // Control Panel
         VBox controlBox = new VBox(10);
         controlBox.setPadding(new Insets(10));
         Label churnTierLabel = new Label("Select Tiers:");
         controlBox.getChildren().add(churnTierLabel);
-        
+
         // Chart Setup
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
@@ -734,7 +730,7 @@ public class ChartCreator {
         churnWeeklyChart.setTitle("Weekly Churn - Last 15 Weeks");
         churnWeeklyChart.setMinWidth(800);
         HBox.setHgrow(churnWeeklyChart, Priority.ALWAYS);
-        
+
         // Checkboxes
         List<CheckBox> churnCheckBoxes = new ArrayList<>();
         for (String tier : allTiers) {
@@ -742,24 +738,24 @@ public class ChartCreator {
             cb.setSelected(true);  // Default to checked
             churnCheckBoxes.add(cb);
             controlBox.getChildren().add(cb);
-            
+
             // Add listener for dynamic chart updates
             cb.setOnAction(e -> updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData));
         }
-        
+
         if (churnData != null && !churnData.isEmpty()) {
             updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData);
         } else {
             churnWeeklyChart.setTitle("Weekly Churn - No Data Available");
         }
-        
+
         // Final Layout
         HBox layout = new HBox(20, controlBox, churnWeeklyChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.TOP_LEFT);
         HBox.setHgrow(layout, Priority.ALWAYS);
         layout.setMaxWidth(Double.MAX_VALUE);
-        
+
         return layout;
     }
 

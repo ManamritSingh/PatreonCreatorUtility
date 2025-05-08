@@ -12,27 +12,31 @@ public class EmailReward {
 	private SimpleStringProperty subject;
 	private SimpleStringProperty triggerOpt;
 	private List<String> recipients;
+	private SimpleStringProperty status;
 	
-	public EmailReward(SimpleStringProperty message, SimpleStringProperty subject, SimpleStringProperty trigger, List<String> recepient){
+	public EmailReward(SimpleStringProperty message, SimpleStringProperty subject, SimpleStringProperty trigger, List<String> recepient, SimpleStringProperty status){
 		this.message = message;
 		this.subject = subject;
 		this.triggerOpt = trigger;
 		this.recipients = recepient;
+		this.status = status;
 	}
 	
-	public EmailReward(String message, String subject, String trigger, String recipients) {
+	public EmailReward(String message, String subject, String trigger, String recipients, String status) {
         this.message = new SimpleStringProperty(message);
         this.subject = new SimpleStringProperty(subject);
         this.triggerOpt = new SimpleStringProperty(trigger);
         this.recipients = Arrays.asList(recipients.split(","));
+        this.status = new SimpleStringProperty(status);
 	}
 	
-	public EmailReward(int id, String message, String subject, String trigger, String recipients) {
+	public EmailReward(int id, String message, String subject, String trigger, String recipients, String status) {
 	    this.id.set(id);
 	    this.message = new SimpleStringProperty(message);
 	    this.subject = new SimpleStringProperty(subject);
 	    this.triggerOpt = new SimpleStringProperty(trigger);
 	    this.recipients = Arrays.asList(recipients.split(","));
+	    this.status = new SimpleStringProperty(status);
 	}
 
 	
@@ -45,6 +49,9 @@ public class EmailReward {
 	public SimpleStringProperty getTriggerOpt() {
 		return triggerOpt;
 	}
+	public SimpleStringProperty getStatus() {
+		return status;
+	}
 	public List<String> getRecepients() {
 		return recipients;
 	}
@@ -53,6 +60,9 @@ public class EmailReward {
 	}
 	public void setSubject(SimpleStringProperty subject) {
 		this.subject = subject;
+	}
+	public void setStatus(String status) {
+		this.status = new SimpleStringProperty(status);
 	}
 
 	public int getId() {
@@ -69,6 +79,6 @@ public class EmailReward {
 
 	@Override
 	public String toString() {
-		return "EmailReward [message=" + message + ", subject=" + subject + ", triggerOpt=" + triggerOpt + "]";
+		return "EmailReward [message=" + message + ", subject=" + subject + ", triggerOpt=" + triggerOpt + ", status=" + status + "]";
 	}
 }
