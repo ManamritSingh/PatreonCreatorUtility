@@ -509,7 +509,7 @@ public class FrontendDriver extends Application {
             ex.printStackTrace();
             System.out.println("Error opening file: " + ex.getMessage());}
     }
-    
+
     private void openChatbotTab() {
         // Check if the "Chatbot" tab already exists
         for (Tab tab : tabPane.getTabs()) {
@@ -518,6 +518,9 @@ public class FrontendDriver extends Application {
                 return;
             }
         }
+
+        // Generate a unique session ID for this chatbot tab
+        String sessionId = UUID.randomUUID().toString();
 
         // Create new VBox chatbot panel
         VBox chatbotBox = new VBox(10);
@@ -545,11 +548,19 @@ public class FrontendDriver extends Application {
 
                 new Thread(() -> {
                     try {
+                        // Build JSON body
+                        String json = """
+                        {
+                          "sessionId": "%s",
+                          "userInput": "%s"
+                        }
+                        """.formatted(sessionId, userMessage.replace("\"", "\\\""));
+
                         HttpClient client = HttpClient.newHttpClient();
                         HttpRequest request = HttpRequest.newBuilder()
                                 .uri(URI.create("http://localhost:8080/api/chat"))
                                 .header("Content-Type", "application/json")
-                                .POST(HttpRequest.BodyPublishers.ofString(userMessage))
+                                .POST(HttpRequest.BodyPublishers.ofString(json))
                                 .build();
 
                         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
@@ -578,6 +589,7 @@ public class FrontendDriver extends Application {
         tabPane.getTabs().add(chatbotTab);
         tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
     }
+
 
 
     // Helper method to create the user message bubble
