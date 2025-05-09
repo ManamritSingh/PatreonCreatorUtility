@@ -809,7 +809,11 @@ public class ChartCreator {
         // ComboBox for year selection
         ComboBox<String> yearSelector = new ComboBox<>();
         yearSelector.getItems().addAll(yearOptions);
-        yearSelector.getSelectionModel().selectFirst();
+
+        // Only select the first year if there are options available
+        if (!yearOptions.isEmpty()) {
+            yearSelector.getSelectionModel().selectFirst();
+        }
 
         // Chart and container
         CategoryAxis xAxis = new CategoryAxis();
@@ -823,8 +827,15 @@ public class ChartCreator {
 
         // Create chart data function
         Runnable updateChart = () -> {
-        	String selected = yearSelector.getValue();
-        	List<EarningEntry> filtered = earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+            String selected = yearSelector.getValue();
+            
+            // Only update if a year is selected
+            if (selected == null) {
+                chart.getData().clear();
+                return;
+            }
+            
+            List<EarningEntry> filtered = earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
 
             XYChart.Series<String, Number> grossSeries = new XYChart.Series<>();
             grossSeries.setName("Total Revenue");
@@ -833,7 +844,7 @@ public class ChartCreator {
             netSeries.setName("Net Earnings");
 
             filtered.stream()
-                .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber)) // You’ll need this method
+                .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber))
                 .forEach(entry -> {
                     String label = entry.getMonthValue().substring(0, 3); // "Jan", "Feb", etc.
                     grossSeries.getData().add(new XYChart.Data<>(label, entry.getTotalValue()));
@@ -861,6 +872,7 @@ public class ChartCreator {
 
         return container;
     }
+
 
 
 

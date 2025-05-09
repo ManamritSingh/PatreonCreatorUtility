@@ -329,8 +329,8 @@ public class FrontendDriver extends Application {
 				break;
 			case "Campaign Activity":
 				HBox postActivity = cc.createPostActivity(postData);
-				HBox surveyPie = cc.createSurveyPieChart(surveyData);
-                campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
+				//HBox surveyPie = cc.createSurveyPieChart(surveyData);
+                campaignChartBox.getChildren().setAll(postActivity);
 				break;
 			case "Retention":
 			    HBox dataGenBanner = new HBox(5);
