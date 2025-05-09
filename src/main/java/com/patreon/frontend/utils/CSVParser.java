@@ -172,106 +172,93 @@ public class CSVParser {
         }
     }
 
-	public void parseSurveysCSV(File file, TableView<SurveyEntry> surveyTable, ObservableList<SurveyEntry> surveyData) {
-	    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-	        String line;
-	        String header = reader.readLine();
+    public void parseSurveysCSV(File file, TableView<SurveyEntry> surveyTable, ObservableList<SurveyEntry> surveyData) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            String header = reader.readLine();
 
-	        if (header == null) {
-	            showAlert("Error", "The file is empty.");
-	            return;
-	        }
+            if (header == null) {
+                showAlert("Error", "The file is empty.");
+                return;
+            }
 
-	        // Expected column headers
-	        String[] expectedHeaders = {
-	            "Submitted At (UTC)", "Name", "Email", "Tier", "Survey Choice", "Additional Comment"
-	        };
+            String[] expectedHeaders = {
+                    "Submitted At (UTC)", "Name", "Email", "Tier", "Survey Choice", "Additional Comment"
+            };
 
-	        // Normalize and split header
-	        String[] actualHeaders = header.toLowerCase().split(",", -1);
+            String[] actualHeaders = header.toLowerCase().split(",", -1);
 
-	        // Validate CSV headers
-	        for (String expected : expectedHeaders) {
-	            boolean found = Arrays.stream(actualHeaders)
-	                    .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
-	            if (!found) {
-	                showAlert("Invalid File", "This doesn't appear to be a valid surveys CSV.");
-	                return;
-	            }
-	        }
+            for (String expected : expectedHeaders) {
+                boolean found = Arrays.stream(actualHeaders)
+                        .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
+                if (!found) {
+                    showAlert("Invalid File", "This doesn't appear to be a valid surveys CSV.");
+                    return;
+                }
+            }
 
-	        // Initialize new entries list
-	        ArrayList<SurveyEntry> newEntries = new ArrayList<>();
+            ArrayList<SurveyEntry> newEntries = new ArrayList<>();
+            Set<String> existingEmails = DatabaseServices.getExistingSurveyEmails();
+            ArrayList<EmailReward> activeSurveyRewards = DatabaseServices.getActiveSurveyRewards();
 
-	        // Load existing emails from the database
-	        Set<String> existingEmails = DatabaseServices.getExistingSurveyEmails();
+            if (activeSurveyRewards.isEmpty()) {
+                System.out.println("⚠️ No active 'Survey Completion' rewards found. Continuing without reward dispatch.");
+            }
 
-	        // Check for active "Survey Completion" rewards
-	        ArrayList<EmailReward> activeSurveyRewards = DatabaseServices.getActiveSurveyRewards();
-	        if (activeSurveyRewards.isEmpty()) {
-	            showAlert("No Active Rewards", "No active 'Survey Completion' rewards found.");
-	            return;
-	        }
+            while ((line = reader.readLine()) != null) {
+                String[] tokens = line.split(",", -1);
+                String email = tokens[2].trim();
+                String tier = tokens[3].trim();
+                String name = tokens[1].trim();
 
-	        // Parse each line in the CSV
-	        while ((line = reader.readLine()) != null) {
-	            String[] tokens = line.split(",", -1);
-	            String email = tokens[2].trim();
-	            String tier = tokens[3].trim();
-	            String name = tokens[1].trim();
+                if (!existingEmails.contains(email)) {
+                    SurveyEntry entry = new SurveyEntry(
+                            new SimpleStringProperty(tokens[0].trim()),
+                            new SimpleStringProperty(name),
+                            new SimpleStringProperty(email),
+                            new SimpleStringProperty(tier),
+                            new SimpleStringProperty(tokens[4].trim()),
+                            new SimpleStringProperty(tokens[5].trim())
+                    );
 
-	            // Process only new survey entries (not existing emails)
-	            if (!existingEmails.contains(email)) {
-	                // Create new SurveyEntry object
-	                SurveyEntry entry = new SurveyEntry(
-	                        new SimpleStringProperty(tokens[0].trim()),  // Submitted At (UTC)
-	                        new SimpleStringProperty(tokens[1].trim()),  // Name
-	                        new SimpleStringProperty(email),             // Email
-	                        new SimpleStringProperty(tier),              // Tier
-	                        new SimpleStringProperty(tokens[4].trim()),  // Survey Choice
-	                        new SimpleStringProperty(tokens[5].trim())   // Additional Comment
-	                );
+                    newEntries.add(entry);
+                    surveyData.add(entry);
 
-	                // Add the new entry to both the list and the ObservableList
-	                newEntries.add(entry);
-	                surveyData.add(entry);
+                    if (!activeSurveyRewards.isEmpty()) {
+                        for (EmailReward reward : activeSurveyRewards) {
+                            if (reward.getRecepients().contains(tier)) {
+                                rewardTriggerService.handleSurveyCompletion(email, tier, name);
+                                System.out.println("Survey reward sent to: " + email + " (Tier: " + tier + ")");
+                            }
+                        }
+                    }
+                }
+            }
 
-	                // Check if the user is eligible for any rewards based on their tier
-	                for (EmailReward reward : activeSurveyRewards) {
-	                    if (reward.getRecepients().contains(tier)) {
-	                        // Trigger the reward for this survey entry
-	                        rewardTriggerService.handleSurveyCompletion(email, tier, name);;
-	                        System.out.println("Survey reward sent to: " + email + " (Tier: " + tier + ")");
-	                    }
-	                }
-	            }
-	        }
+            if (!newEntries.isEmpty()) {
+                try (Connection conn = DatabaseConnection.getConnection()) {
+                    DatabaseServices.saveSurveyToDatabase(conn, newEntries);
+                    System.out.println("✅ Survey data saved successfully.");
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
 
-	        // Save only new entries to the database
-	        if (!newEntries.isEmpty()) {
-	            try (Connection conn = DatabaseConnection.getConnection()) {
-	                DatabaseServices.saveSurveyToDatabase(conn, newEntries);
-	                System.out.println("Survey data saved successfully.");
-	            } catch (SQLException e) {
-	                e.printStackTrace();
-	            }
-	        }
+            surveyTable.setItems(surveyData);
 
-	        // Update the TableView with the latest survey data
-	        surveyTable.setItems(surveyData);
-
-	    } catch (IOException e) {
-	        e.printStackTrace();
-	        showAlert("File Error", "Could not read the file.");
-	    } catch (Exception e) {
-	        e.printStackTrace();
-	        showAlert("Parsing Error", "There was an error while parsing the CSV.");
-	    }
-	}
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert("File Error", "Could not read the file.");
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert("Parsing Error", "There was an error while parsing the CSV.");
+        }
+    }
 
 
-	
-	public void parseUserCSV(File file, TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
+
+
+    public void parseUserCSV(File file, TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
     	userData.clear();
         
     	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {

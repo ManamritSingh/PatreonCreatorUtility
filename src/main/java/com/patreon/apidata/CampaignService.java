@@ -19,50 +19,67 @@ public class CampaignService {
 
     public CampaignService(String accessToken) {
         this.accessToken = accessToken;
-        this.httpClient = HttpClient.newHttpClient();
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(5))  // connection timeout
+                .build();
     }
 
-    public Campaign getCampaignWithTiers() throws IOException, InterruptedException {
-        String url = "https://www.patreon.com/api/oauth2/v2/campaigns?include=tiers&fields[campaign]=created_at&fields[tier]=title,amount_cents";
+
+    public Campaign getCampaignWithTiers() {
+        String url = "https://www.patreon.com/api/oauth2/v2/campaigns" +
+                "?include=tiers&fields[campaign]=created_at&fields[tier]=title,amount_cents";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
+                .timeout(java.time.Duration.ofSeconds(15)) // total request timeout
                 .header("Authorization", "Bearer " + accessToken)
                 .GET()
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = mapper.readTree(response.body());
+        try {
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        JsonNode dataArray = root.get("data");
-        if (dataArray == null || !dataArray.isArray() || dataArray.isEmpty()) {
-            System.err.println("❌ No campaign data found!");
-            System.err.println("Raw response:");
-            System.err.println(response.body());
-            return null;
-        }
+            if (response.statusCode() >= 500) {
+                System.err.println("⚠️ Patreon API returned server error: " + response.statusCode());
+                return null;
+            }
 
-        JsonNode data = dataArray.get(0);  // first campaign
-        JsonNode included = root.get("included");
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(response.body());
 
-        Campaign campaign = new Campaign();
-        campaign.id = data.get("id").asText();
-        campaign.creationDate = data.get("attributes").get("created_at").asText();
-        campaign.name = "My Campaign";  // Placeholder if needed
+            JsonNode dataArray = root.get("data");
+            if (dataArray == null || !dataArray.isArray() || dataArray.isEmpty()) {
+                System.err.println("❌ No campaign data found!");
+                System.err.println("Raw response:\n" + response.body());
+                return null;
+            }
 
-        if (included != null && included.isArray()) {
-            for (JsonNode node : included) {
-                if (node.get("type").asText().equals("tier")) {
-                    Tier tier = new Tier();
-                    tier.setId(node.get("id").asText());
-                    tier.setTitle(node.get("attributes").get("title").asText());
-                    tier.setAmountCents(node.get("attributes").get("amount_cents").asInt());
-                    campaign.tiers.add(tier);
+            JsonNode data = dataArray.get(0);
+            JsonNode included = root.get("included");
+
+            Campaign campaign = new Campaign();
+            campaign.id = data.get("id").asText();
+            campaign.creationDate = data.get("attributes").get("created_at").asText();
+            campaign.name = "My Campaign";  // or replace with actual name
+
+            if (included != null && included.isArray()) {
+                for (JsonNode node : included) {
+                    if ("tier".equals(node.get("type").asText())) {
+                        Tier tier = new Tier();
+                        tier.setId(node.get("id").asText());
+                        tier.setTitle(node.get("attributes").get("title").asText());
+                        tier.setAmountCents(node.get("attributes").get("amount_cents").asInt());
+                        campaign.tiers.add(tier);
+                    }
                 }
             }
-        }
 
-        return campaign;
+            return campaign;
+
+        } catch (IOException | InterruptedException e) {
+            System.err.println("❌ Failed to fetch campaign from Patreon API: " + e.getMessage());
+            return null;
+        }
     }
+
 }

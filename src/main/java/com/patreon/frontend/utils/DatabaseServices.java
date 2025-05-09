@@ -735,25 +735,48 @@ public class DatabaseServices {
     }
 
 
-	public List<String> getAllTiers(boolean isMock) {
-		List<String> tierNames = new ArrayList<>();
-		String query = "SELECT DISTINCT tier_name FROM tier_snap WHERE is_mock = ? ORDER BY tier_name";
+    public List<String> getAllTiers(boolean isMock) {
+        List<String> tierNames = new ArrayList<>();
+        String query = "SELECT DISTINCT tier_name FROM tier_snap WHERE is_mock = ? ORDER BY tier_name";
 
-		try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
-			pstmt.setBoolean(1, isMock);
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				tierNames.add(rs.getString("tier_name"));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
+        int attempts = 5;
 
-		return tierNames;
-	}
+        while (attempts-- > 0) {
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(query)) {
 
-	
-	public Map<String, Map<LocalDate, Double>> getAvgChurnRates(String interval, boolean isMock) {
+                pstmt.setBoolean(1, isMock);
+                ResultSet rs = pstmt.executeQuery();
+
+                while (rs.next()) {
+                    tierNames.add(rs.getString("tier_name"));
+                }
+
+                return tierNames;  // ✅ Success, return immediately
+
+            } catch (SQLException e) {
+                if (e.getMessage().contains("no such table")) {
+                    System.out.println("⏳ Waiting for 'tier_snap' table to be created by Hibernate...");
+                    try {
+                        Thread.sleep(1000);  // Wait 1 second before retry
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                } else {
+                    e.printStackTrace();  // Other SQL error — log and exit
+                    break;
+                }
+            }
+        }
+
+        System.out.println("⚠️ Giving up on loading tiers — 'tier_snap' table still missing after retries.");
+        return tierNames;  // Empty list as fallback
+    }
+
+
+
+    public Map<String, Map<LocalDate, Double>> getAvgChurnRates(String interval, boolean isMock) {
 	    Map<String, Map<LocalDate, Double>> churnData = new HashMap<>();
 	    String timeFormat;
 

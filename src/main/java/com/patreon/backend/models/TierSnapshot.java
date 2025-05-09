@@ -6,12 +6,12 @@ import javax.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name="Tier_Snap")
+@Table(name="tier_snap")
 public class TierSnapshot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
     private String tierName;
     private int patronCount;
@@ -35,11 +35,11 @@ public class TierSnapshot {
 
     // Getters and Setters
 
-    public Long getId() {
+    public Integer getId() {
         return id;
     }
 
-    public void setId(Long id) {
+    public void setId(Integer id) {
         this.id = id;
     }
 

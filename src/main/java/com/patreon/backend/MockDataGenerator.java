@@ -32,14 +32,14 @@ public class MockDataGenerator {
 
         for (Tier tier : tiers) {
             String tierName = (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle();
-            System.out.println("Attempting to create mock data for tier: " + tierName);
 
-            boolean exists = repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(),true);
+            boolean exists = repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(), true);
             if (exists) {
                 System.out.println("Skipping duplicate for tier: " + tierName + " on " + date);
                 continue;
             }
 
+            System.out.println("✅ Creating mock data for tier: " + tierName + " on " + date);
             int patrons = random.nextInt(100);
             double revenue = patrons * (5 + random.nextInt(20));
 
@@ -52,31 +52,24 @@ public class MockDataGenerator {
             ));
         }
 
-
-        repo.saveAll(snapshots);
-        System.out.println("✅ Mock data generated for " + label + " on " + date);
+        if (!snapshots.isEmpty()) {
+            repo.saveAll(snapshots);
+            System.out.println("✅ Inserted " + snapshots.size() + " new rows for " + label + " on " + date);
+        } else {
+            System.out.println("ℹ️ No new rows inserted for " + label + " on " + date);
+        }
     }
+
 
     public void generateOneYearOfFakeData(List<Tier> tiers) {
         LocalDate today = LocalDate.now();
         for (int i = 360; i >= 1; i--) {
             LocalDate date = today.minusDays(i);
-            boolean skip = true;
-
-            for (Tier tier : tiers) {
-                String tierName = (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle();
-                if (!repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(), true)) {
-                    skip = false;
-                    break;
-                }
-            }
-
-            if (!skip) {
-                generateFakeDataForDate(date, tiers, "Yearly Seeder");
-            }
+            generateFakeDataForDate(date, tiers, "Yearly Seeder");
         }
         System.out.println("✅ 360 days of mock data seeded to database!");
     }
+
 
 
 }

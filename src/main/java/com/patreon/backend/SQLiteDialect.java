@@ -62,4 +62,20 @@ public class SQLiteDialect extends Dialect {
     public IdentityColumnSupport getIdentityColumnSupport() {
         return new SQLiteIdentityColumnSupport();
     }
+
+    @Override
+    public boolean hasAlterTable() {
+        return false;  // SQLite doesn't support ALTER TABLE reliably
+    }
+
+    @Override
+    public boolean dropConstraints() {
+        return false;
+    }
+
+    @Override
+    public boolean supportsIfExistsBeforeTableName() {
+        return true;
+    }
+
 }

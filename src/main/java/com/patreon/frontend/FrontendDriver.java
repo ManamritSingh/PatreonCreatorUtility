@@ -30,6 +30,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -171,7 +172,7 @@ public class FrontendDriver extends Application {
 
     // helper for switch
 
-    private void sendGenerateRequest(boolean useMock) {
+    private CompletableFuture<Void> sendGenerateRequest(boolean useMock) {
         try {
             String url = "http://localhost:8080/api/data/generate?mock=" + useMock;
             HttpClient client = HttpClient.newHttpClient();
@@ -180,14 +181,18 @@ public class FrontendDriver extends Application {
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
 
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> System.out.println("✔ Backend: " + response.body()));
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        System.out.println("✔ Backend: " + response.body());
+                    });
+
         } catch (Exception e) {
             e.printStackTrace();
+            return CompletableFuture.failedFuture(e);
         }
     }
 
-    private void sendGenerateYearlyRequest() {
+    private CompletableFuture<Void> sendGenerateYearlyRequest() {
         try {
             String url = "http://localhost:8080/api/data/generate/yearly-fake";
             HttpClient client = HttpClient.newHttpClient();
@@ -196,12 +201,17 @@ public class FrontendDriver extends Application {
                     .POST(HttpRequest.BodyPublishers.noBody())
                     .build();
 
-            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> System.out.println("✔ Yearly Data: " + response.body()));
+            return client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        System.out.println("✔ Yearly Data: " + response.body());
+                    });
+
         } catch (Exception e) {
             e.printStackTrace();
+            return CompletableFuture.failedFuture(e);
         }
     }
+
     // ----------------------------
     // Tab Initialization
     // ----------------------------
@@ -311,8 +321,14 @@ public class FrontendDriver extends Application {
         tabPane.getTabs().add(rewardsTab);
         tabPane.getSelectionModel().select(rewardsTab);
     }
-	
-	private void buildTabContent(String section) {
+
+    private void reloadBackendData() {
+        this.ds = new DatabaseServices();
+        System.out.println("Re-instantiated DatabaseServices");
+    }
+
+
+    private void buildTabContent(String section) {
 		List<String> allTiers = ds.getAllTiers(true);
 		switch(section) {
 			case "Revenue":
@@ -366,21 +382,55 @@ public class FrontendDriver extends Application {
 			    };
 
 			    // Button actions
-			    realDataButton.setOnAction(e -> {
-			        isMock.set(false);
-			        updateCharts.run();
-			        realDataButton.setStyle("-fx-font-weight: bold;");
-			        fakeDataButton.setStyle("");
-			    });
+                realDataButton.setOnAction(e -> {
+                    realDataButton.setDisable(true);  // prevent multiple clicks
+                    sendGenerateRequest(false).thenRun(() -> {
+                        Platform.runLater(() -> {
+                            isMock.set(false);
+                            reloadBackendData();
+                            updateCharts.run();
+                            realDataButton.setStyle("-fx-font-weight: bold;");
+                            fakeDataButton.setStyle("");
+                            realDataButton.setDisable(false);
+                        });
+                    }).exceptionally(ex -> {
+                        ex.printStackTrace();
+                        Platform.runLater(() -> {
+                            realDataButton.setDisable(false);
+                            showAlert("Real data loading failed.");
+                        });
+                        return null;
+                    });
+                });
 
-			    fakeDataButton.setOnAction(e -> {
-			        isMock.set(true);
-			        updateCharts.run();
-			        fakeDataButton.setStyle("-fx-font-weight: bold;");
-			        realDataButton.setStyle("");
-			    });
 
-			    // Initialize with fake data
+                fakeDataButton.setOnAction(e -> {
+                    fakeDataButton.setDisable(true);
+
+                    sendGenerateYearlyRequest()
+                            .thenCompose(v -> sendGenerateRequest(true))  // wait for yearly, then main insert
+                            .thenRun(() -> Platform.runLater(() -> {
+                                isMock.set(true);
+                                reloadBackendData();
+                                updateCharts.run();
+                                fakeDataButton.setStyle("-fx-font-weight: bold;");
+                                realDataButton.setStyle("");
+                                fakeDataButton.setDisable(false);
+                            }))
+                            .exceptionally(ex -> {
+                                ex.printStackTrace();
+                                Platform.runLater(() -> {
+                                    fakeDataButton.setDisable(false);
+                                    showAlert("Fake data generation failed.");
+                                });
+                                return null;
+                            });
+                });
+
+
+
+
+                // Initialize with fake data
 			    updateCharts.run();
 			    fakeDataButton.setStyle("-fx-font-weight: bold;"); // Start with fake data highlighted
 
@@ -388,8 +438,32 @@ public class FrontendDriver extends Application {
 			    retentionChartBox.getChildren().setAll(dataGenBanner, chart1, new Separator(), chart2, new Separator(), chart3);
 			    break;
         }
-	}
- 
+    }
+
+    private void showAlert(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+//    private void reloadBackendData() {
+//        // Clear existing data
+//        earningData.clear();
+//        postData.clear();
+//        surveyData.clear();
+//        rewardList.clear();
+//        userData.clear();
+//
+//        // Reload from DB
+//        ds.loadEarningsFromDB(earningTable, earningData);
+//        ds.loadPostFromDB(postTable, postData);
+//        ds.loadSurveyFromDB(surveyTable, surveyData);
+//        ds.loadUserFromDB(userTable, userData);
+//        ds.loadRewardsFromDB(rewardsTable, rewardList);
+//    }
+
+
     private void initializeTables() {
     	//CHANGE THIS LATER TO GRAB PREVIOUS DATA FROM DATABASE
     	tc.setupEarningTableColumns(earningTable);
