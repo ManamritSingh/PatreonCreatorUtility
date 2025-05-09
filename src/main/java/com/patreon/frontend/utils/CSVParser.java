@@ -218,6 +218,7 @@ public class CSVParser {
 	            String[] tokens = line.split(",", -1);
 	            String email = tokens[2].trim();
 	            String tier = tokens[3].trim();
+	            String name = tokens[1].trim();
 
 	            // Process only new survey entries (not existing emails)
 	            if (!existingEmails.contains(email)) {
@@ -239,7 +240,7 @@ public class CSVParser {
 	                for (EmailReward reward : activeSurveyRewards) {
 	                    if (reward.getRecepients().contains(tier)) {
 	                        // Trigger the reward for this survey entry
-	                        rewardTriggerService.handleSurveyCompletion(email, tier);;
+	                        rewardTriggerService.handleSurveyCompletion(email, tier, name);;
 	                        System.out.println("Survey reward sent to: " + email + " (Tier: " + tier + ")");
 	                    }
 	                }

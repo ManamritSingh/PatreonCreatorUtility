@@ -43,7 +43,6 @@ public class RewardTriggerService {
 
     public void processNewOrUpdatedMember(Member newMember) {
         Optional<Member> existingMember = memberRepository.findById(newMember.getId());
-        System.out.println("Processing member: Existing: " + existingMember + "newMember: " + newMember);
         if (existingMember.isPresent()) {
         	Member oldMember = copyMember(existingMember.get());
             memberRepository.save(newMember); // Save updated member info
@@ -56,18 +55,18 @@ public class RewardTriggerService {
     }
     
     public void handleNewMember(Member newMember) {
-    	System.out.println("handleNewMember called on" + newMember.getId());
     	if (!memberRepository.existsById(newMember.getId())) {
-    		System.out.println("Inside IF block of if the repository does note have member" + newMember.getId());
     		memberRepository.save(newMember);
-            System.out.println("Checking for New Subscriber rewards...");
             List<Reward> rewards = rewardRepository.findByTriggerAndStatus("New Subscriber", "Active");
-            System.out.println("Found rewards: " + rewards.size());
-
 
             for (Reward reward : rewards) {
                 if (tierMatches(newMember.getTierId(), reward.getRecipients())) {
-                    emailService.sendEmailToOne(newMember.getEmail(), reward.getSubject(), reward.getMessage());
+                	String firstName = newMember.getFirstName();
+                    String lastName = newMember.getLastName();
+                    String personalizedMessage = replacePlaceholders(reward.getMessage(), firstName, lastName);
+                    
+                    // Send the email with the personalized message
+                    emailService.sendEmailToOne(newMember.getEmail(), reward.getSubject(), personalizedMessage);
                     logAction("New Subscriber", newMember.getEmail());
                 }
             }
@@ -75,69 +74,60 @@ public class RewardTriggerService {
     }
 
     public void handleTierChange(Member oldMember, Member updatedMember) {
-        System.out.println("handleTierChange called on " + oldMember + " updated to " + updatedMember);
 
-        // Check if the tier has actually changed
         if (!oldMember.getTierId().equals(updatedMember.getTierId())) {
-            System.out.println("Tier change inside if block");
 
-            // Get the ranks from the tierRankMap, defaulting to 0 if not found
             int oldRank = tierRankMap.getOrDefault(oldMember.getTierId(), 0);
             int newRank = tierRankMap.getOrDefault(updatedMember.getTierId(), 0);
 
-            // Only process if the new rank is greater than the old rank
             if (newRank > oldRank) {
-                System.out.println("Checking for Upgraded Tier rewards...");
-
-                // Fetch rewards for "Upgraded Tier" trigger and "Active" status
                 List<Reward> rewards = rewardRepository.findByTriggerAndStatus("Upgraded Tier", "Active");
-                System.out.println("Found rewards: " + rewards.size());
 
-                // If rewards exist, check if they match the member's tier
+
                 if (!rewards.isEmpty()) {
                     for (Reward reward : rewards) {
-                        // Check if the reward applies to the member's new tier
                         if (tierMatches(updatedMember.getTierId(), reward.getRecipients())) {
-                            // Send the email reward to the member
-                            emailService.sendEmailToOne(updatedMember.getEmail(), reward.getSubject(), reward.getMessage());
+
+                        	String firstName = updatedMember.getFirstName();
+                            String lastName = updatedMember.getLastName();
+                            String personalizedMessage = replacePlaceholders(reward.getMessage(), firstName, lastName);
+
+                            emailService.sendEmailToOne(updatedMember.getEmail(), reward.getSubject(), personalizedMessage);
                             System.out.println("Upgraded Tier reward sent to " + updatedMember.getEmail());
                         }
                     }
-                } else {
-                    System.out.println("No active rewards found for upgraded tier.");
                 }
-            } else {
-                System.out.println("New rank is not higher than old rank. No action taken.");
             }
-        } else {
-            System.out.println("Tier did not change. No action taken.");
-        }
+        }   
     }
 
     public void handleUnsubscribe(Member oldMember, Member updatedMember) {
-    	System.out.println("handleTierChange called on" + oldMember + " updated to " + updatedMember);
         if (oldMember.isFollower() && !updatedMember.isFollower()) {
-        	System.out.println("Unsubscribe inside if block");
-        	System.out.println("Checking for Unsubscribed rewards...");
         	List<Reward> rewards = rewardRepository.findByTriggerAndStatus("Unsubscribed", "Active");
-        	System.out.println("Found rewards: " + rewards.size());
 
             for (Reward reward : rewards) {
                 if (tierMatches(updatedMember.getTierId(), reward.getRecipients())) {
-                    emailService.sendEmailToOne(updatedMember.getEmail(), reward.getSubject(), reward.getMessage());
+                	String firstName = updatedMember.getFirstName();
+                    String lastName = updatedMember.getLastName();
+                    String personalizedMessage = replacePlaceholders(reward.getMessage(), firstName, lastName);
+
+                	emailService.sendEmailToOne(updatedMember.getEmail(), reward.getSubject(), personalizedMessage);
                     logAction("Unsubscribed", updatedMember.getEmail());
                 }
             }
         }
     }
 
-    public void handleSurveyCompletion(String memberEmail, String tierId) {
-    	System.out.println("handleSurveyCompletion called on" + memberEmail);
+    public void handleSurveyCompletion(String memberEmail, String tierId, String name) {
         List<Reward> rewards = rewardRepository.findByTriggerAndStatus("Survey Completion", "Active");
 
         for (Reward reward : rewards) {
             if (tierMatches(tierId, reward.getRecipients())) {
-                emailService.sendEmailToOne(memberEmail, reward.getSubject(), reward.getMessage());
+            	String firstName = name;
+                String lastName = name;
+                String personalizedMessage = replacePlaceholders(reward.getMessage(), firstName, lastName);
+                
+                emailService.sendEmailToOne(memberEmail, reward.getSubject(), personalizedMessage);
                 logAction("Survey Completion", memberEmail);
             }
         }
@@ -165,16 +155,32 @@ public class RewardTriggerService {
                 .orElse(null);
 
             if (largestIdReward != null && tierMatches(selectedUser.getTierId(), largestIdReward.getRecipients())) {
-                emailService.sendEmailToOne(selectedUser.getEmail(), largestIdReward.getSubject(), largestIdReward.getMessage());
-                logAction("Raffle", selectedUser.getEmail());
-                System.out.println("Sent reward with ID " + largestIdReward.getId() + " to " + selectedUser.getEmail());
+                String firstName = selectedUser.getFirstName();
+                String lastName = selectedUser.getLastName();
+                String personalizedMessage = replacePlaceholders(largestIdReward.getMessage(), firstName, lastName);
+
+                try {
+                    emailService.sendEmailToOne(selectedUser.getEmail(), largestIdReward.getSubject(), personalizedMessage);
+                    logAction("Raffle", selectedUser.getEmail());
+                    largestIdReward.setStatus("Sent Successfully");
+                    System.out.println("Sent reward with ID " + largestIdReward.getId() + " to " + selectedUser.getEmail());
+                } catch (Exception e) {
+                    largestIdReward.setStatus("Failed to Send");
+                    System.err.println("Failed to send reward with ID " + largestIdReward.getId() + " to " + selectedUser.getEmail());
+                    e.printStackTrace();
+                }
+
+                // Save the status change
+                rewardRepository.save(largestIdReward);
             }
         } else {
-            System.out.println("No raffle-eligible users found.");
+            for (Reward reward : rewards) {
+                reward.setStatus("No Eligible Members");
+                rewardRepository.save(reward);
+                System.out.println("No raffle-eligible users found for reward with ID " + reward.getId());
+            }
         }
     }
-
-
 
     private boolean tierMatches(String memberTier, String rewardRecipients) {
         System.out.println("tierMatches being called");
@@ -220,6 +226,16 @@ public class RewardTriggerService {
         copy.setTest(original.isTest());
         return copy;
     }
+    
+ // Method to replace placeholders with actual user information
+    private String replacePlaceholders(String message, String firstName, String lastName) {
+        if (message != null) {
+            message = message.replace("{FIRST_NAME}", firstName != null ? firstName : "User");
+            message = message.replace("{LAST_NAME}", lastName != null ? lastName : "Member");
+        }
+        return message;
+    }
+
 
 }
 

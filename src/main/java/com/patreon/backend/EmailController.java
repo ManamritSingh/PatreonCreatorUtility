@@ -30,7 +30,6 @@ public class EmailController {
     @Autowired
     private EmailService emailService;
 
-
     @GetMapping("/")
     public String homePage(Model model) {
         List<String> tiers = memberRepository.findAllTiers();
@@ -56,14 +55,15 @@ public class EmailController {
                 model.addAttribute("message", "Sent email to " + members.size() + " members across all tiers.");
             } else {
                 // Send to members in selected tiers
-            	members = memberRepository.findByTierIdIn(new ArrayList<>(selectedTiers));
-
+                members = memberRepository.findByTierIdIn(new ArrayList<>(selectedTiers));
                 model.addAttribute("message", "Sent email to " + members.size() + " members in " + 
                         selectedTiers.size() + " selected tier(s).");
             }
 
+            // Replace placeholders and send emails
             for (Member member : members) {
-                emailService.sendEmailToOne(member.getEmail(), subject, messageBody);
+                String personalizedMessage = replacePlaceholders(messageBody, member);
+                emailService.sendEmailToOne(member.getEmail(), subject, personalizedMessage);
                 sentCount++;
             }
 
@@ -72,7 +72,8 @@ public class EmailController {
             List<Member> testMembers = memberRepository.findByIsTestTrue();
 
             for (Member member : testMembers) {
-                emailService.sendEmailToOne(member.getEmail(), subject, messageBody);
+                String personalizedMessage = replacePlaceholders(messageBody, member);
+                emailService.sendEmailToOne(member.getEmail(), subject, personalizedMessage);
                 sentCount++;
             }
 
@@ -90,5 +91,13 @@ public class EmailController {
         return "result"; 
     }
 
-}
+    // Helper method to replace placeholders
+    private String replacePlaceholders(String message, Member member) {
+        if (message != null) {
+            message = message.replace("{FIRST_NAME}", member.getFirstName() != null ? member.getFirstName() : "User");
+            message = message.replace("{LAST_NAME}", member.getLastName() != null ? member.getLastName() : "Member");
+        }
+        return message;
+    }
 
+}

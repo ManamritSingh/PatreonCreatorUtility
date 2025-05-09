@@ -225,6 +225,9 @@ public class TableCreator {
     	TableColumn<EmailReward, String> statusCol = new TableColumn<>("Status");
     	statusCol.setCellValueFactory(cellData -> cellData.getValue().getStatus());
     	
+    	subjectCol.setPrefWidth(128);
+    	messageCol.setPrefWidth(500);
+    	
     	rewardsTable.getColumns().addAll(triggerCol, recipientsCol, subjectCol, messageCol, statusCol);
     }
 }

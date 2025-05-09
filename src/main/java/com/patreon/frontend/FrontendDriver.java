@@ -99,7 +99,7 @@ public class FrontendDriver extends Application {
         layout.setCenter(tabPane);
 
         // Initialize tabs,tables, and charts
-        
+        openChatbotTab();
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
@@ -108,7 +108,6 @@ public class FrontendDriver extends Application {
     	buildTabContent("Demographics");
     	buildTabContent("Campaign Activity");
     	
-        
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
         scene.getStylesheets().add(getClass().getResource("/styles/chart-styles.css").toExternalForm());
@@ -137,7 +136,6 @@ public class FrontendDriver extends Application {
         Menu charts = new Menu("Charts");
         Menu dataFiles = new Menu("Data File");
         MenuItem emailRewards = new MenuItem("Email Rewards");
-        MenuItem chatbot = new MenuItem("Chatbot");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
@@ -158,7 +156,6 @@ public class FrontendDriver extends Application {
         viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
-        chatbot.setOnAction(e -> openChatbotTab());
 
         //Open CSV Files
         menuOpen.setOnAction(e -> openFile());
@@ -166,7 +163,7 @@ public class FrontendDriver extends Application {
         viewMenu.getItems().addAll(charts,dataFiles);
         charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
         dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile, viewUserFile);
-        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards, chatbot);
+        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards);
         menuBar.getMenus().add(fileMenu);
 
         return menuBar;
@@ -205,13 +202,10 @@ public class FrontendDriver extends Application {
             e.printStackTrace();
         }
     }
-
-
     // ----------------------------
     // Tab Initialization
     // ----------------------------
     private void initializeTabs() {
-
     	openTab("Revenue", revenueChartBox);
         openTab("Retention", retentionChartBox);
         openTab("Demographics", demographicChartBox);
@@ -277,15 +271,17 @@ public class FrontendDriver extends Application {
 	    Button mockButton = new Button("Mock API call");
 	    Region spacer = new Region();
 	    HBox.setHgrow(spacer, Priority.ALWAYS);
+	    HBox statusPanel = new HBox(5);
 	    Label statusLabel = new Label();
+	    statusLabel.setAlignment(Pos.CENTER_RIGHT);
+	    statusPanel.getChildren().setAll(statusLabel);
+	    statusPanel.setAlignment(Pos.CENTER_RIGHT);
 	    
 	    mockButton.setOnAction(e -> generateMockMember(statusLabel));
 	    mockPanel.getChildren().setAll(mockLabel,spacer, mockButton);
-	    
-	    
 
         // Left VBox with buttons
-        VBox buttonPanel = new VBox(10);
+        HBox buttonPanel = new HBox(10);
         buttonPanel.setPadding(new Insets(10));
         buttonPanel.setAlignment(Pos.TOP_LEFT);
         buttonPanel.setMinWidth(100); // optional: fixed width
@@ -293,28 +289,22 @@ public class FrontendDriver extends Application {
         Button newButton = new Button("New");
         Button deleteButton = new Button("Delete");
 
-        newButton.setOnAction(e ->{ rc.newReward(rewardList); rc.checkRaffle();});
+        newButton.setOnAction(e -> rc.newReward(rewardList));
         deleteButton.setOnAction(e -> rc.deleteSelectedReward(rewardsTable, rewardList));
 
         buttonPanel.getChildren().addAll(newButton, deleteButton);
 
         // Right VBox with rewardsTable, set to grow
-        VBox tableContainer = new VBox(rewardsTable);
+        VBox tableContainer = new VBox();
+        tableContainer.getChildren().addAll(buttonPanel, rewardsTable);
         tableContainer.setPadding(new Insets(10));
         tableContainer.setAlignment(Pos.TOP_LEFT);
-
-        // Make rewardsTable grow to fill width
         rewardsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(rewardsTable, Priority.ALWAYS);
 
-        // HBox with buttons and table, make tableContainer grow
-        HBox contentBox = new HBox(20,buttonPanel, tableContainer);
-        contentBox.setPadding(new Insets(10));
-        HBox.setHgrow(tableContainer, Priority.ALWAYS); // allow right side to grow
-
         // ScrollPane to wrap everything
         VBox scrollPane = new VBox();
-        scrollPane.getChildren().addAll(mockPanel,contentBox, statusLabel);
+        scrollPane.getChildren().addAll(mockPanel, tableContainer, statusPanel);
 
         Tab rewardsTab = new Tab("Email Rewards", scrollPane);
         rewardsTab.setClosable(true);
@@ -364,6 +354,9 @@ public class FrontendDriver extends Application {
 			    HBox chart1 = new HBox();
 			    HBox chart2 = new HBox();
 			    HBox chart3 = new HBox();
+			    
+			    sendGenerateYearlyRequest(); // Generate fake data
+			    sendGenerateRequest(false); // Use real data
 
 			    // Method to update all charts based on data type
 			    Runnable updateCharts = () -> {
@@ -375,7 +368,6 @@ public class FrontendDriver extends Application {
 			    // Button actions
 			    realDataButton.setOnAction(e -> {
 			        isMock.set(false);
-			        sendGenerateRequest(false); // Use real data
 			        updateCharts.run();
 			        realDataButton.setStyle("-fx-font-weight: bold;");
 			        fakeDataButton.setStyle("");
@@ -383,7 +375,6 @@ public class FrontendDriver extends Application {
 
 			    fakeDataButton.setOnAction(e -> {
 			        isMock.set(true);
-			        sendGenerateYearlyRequest(); // Generate fake data
 			        updateCharts.run();
 			        fakeDataButton.setStyle("-fx-font-weight: bold;");
 			        realDataButton.setStyle("");
@@ -487,13 +478,14 @@ public class FrontendDriver extends Application {
         chatbotBox.setStyle("-fx-background-color: lightgray; -fx-padding: 10;");
         chatbotBox.setPrefWidth(400);
 
-        // Chat history area
+        // Chat history area (fills the remaining space)
         ScrollPane scrollPane = new ScrollPane();
         VBox chatHistory = new VBox(5);
         chatHistory.setFillWidth(true);
         scrollPane.setContent(chatHistory);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);  // Make scrollPane take up remaining space
 
         // User input field
         TextField userInput = new TextField();
@@ -501,26 +493,47 @@ public class FrontendDriver extends Application {
 
         // Send button
         Button sendButton = new Button("Send");
-        sendButton.setOnAction(event -> {
-            String userMessage = userInput.getText();
-            if (!userMessage.trim().isEmpty()) {
-                chatHistory.getChildren().add(createUserMessage(userMessage));
-                chatHistory.getChildren().add(createChatbotResponse(
-                    "You are currently viewing the " + getSelectedTabName() + " tab."
-                ));
-                userInput.clear();
-                scrollPane.setVvalue(1.0);
-            }
-        });
+        sendButton.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
+
+        // Activate send button on "Enter"
+        userInput.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
+
+        // Create an HBox to arrange input and button side by side
+        HBox inputBox = new HBox(10);
+        inputBox.setStyle("-fx-padding: 5;");
+        inputBox.getChildren().addAll(userInput, sendButton);
+        HBox.setHgrow(userInput, Priority.ALWAYS);  // Allow input field to grow
 
         // Add components to chatbot panel
-        chatbotBox.getChildren().addAll(scrollPane, userInput, sendButton);
+        chatbotBox.getChildren().addAll(scrollPane, inputBox);
 
         // Create a new tab named "Chatbot" and add the panel
         Tab chatbotTab = new Tab("Chatbot");
         chatbotTab.setContent(chatbotBox);
+        chatbotTab.setClosable(false);  // Set the tab to be non-closable
         tabPane.getTabs().add(chatbotTab);
         tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
+    }
+
+    // Helper method to send the message
+    private void sendMessage(TextField userInput, VBox chatHistory, ScrollPane scrollPane) {
+        String userMessage = userInput.getText();
+        if (!userMessage.trim().isEmpty()) {
+            chatHistory.getChildren().add(createUserMessage(userMessage));
+            chatHistory.getChildren().add(createChatbotResponse(
+                "You are currently viewing the " + getSelectedTabName() + " tab."
+            ));
+            userInput.clear();
+
+            // Wait for the layout to update, then scroll to the bottom
+            Platform.runLater(() -> {
+                chatHistory.heightProperty().addListener((observable, oldValue, newValue) -> {
+                    scrollPane.setVvalue(1.0); // Scroll to the bottom after layout update
+                });
+                chatHistory.layout(); 
+                scrollPane.setVvalue(1.0); 
+            });
+        }
     }
 
 

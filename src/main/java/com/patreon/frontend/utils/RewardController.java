@@ -7,8 +7,10 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -171,6 +173,8 @@ public class RewardController {
 
         popupStage.setScene(new Scene(layout, 450, 400));
         popupStage.showAndWait();
+        rewardTriggerService.triggerRaffleReward();
+        refreshRewards(rewardList);
     }
 
 	
@@ -213,37 +217,92 @@ public class RewardController {
 	}
 	
 	public static boolean sendEmail(String subject, String message, List<String> selectedTiers) {
-        try {
-            URL url = new URL("http://localhost:8080/send-email"); // Adjust if needed
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setDoOutput(true);
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+	    boolean success = false;
+	    try {
+	        URL url = new URL("http://localhost:8080/send-email");
+	        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+	        conn.setRequestMethod("POST");
+	        conn.setDoOutput(true);
+	        conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 
-            StringJoiner sj = new StringJoiner("&");
-            sj.add("subject=" + URLEncoder.encode(subject, "UTF-8"));
-            sj.add("messageBody=" + URLEncoder.encode(message, "UTF-8"));
+	        StringJoiner sj = new StringJoiner("&");
+	        sj.add("subject=" + URLEncoder.encode(subject, "UTF-8"));
+	        sj.add("messageBody=" + URLEncoder.encode(message, "UTF-8"));
 
-            for (String tier : selectedTiers) {
-                sj.add("selectedTiers=" + URLEncoder.encode(tier, "UTF-8"));
-            }
+	        for (String tier : selectedTiers) {
+	            sj.add("selectedTiers=" + URLEncoder.encode(tier, "UTF-8"));
+	        }
 
-            byte[] out = sj.toString().getBytes(StandardCharsets.UTF_8);
-            OutputStream os = conn.getOutputStream();
-            os.write(out);
+	        byte[] out = sj.toString().getBytes(StandardCharsets.UTF_8);
+	        try (OutputStream os = conn.getOutputStream()) {
+	            os.write(out);
+	        }
 
-            int responseCode = conn.getResponseCode();
-            conn.disconnect();
-            return responseCode == HttpURLConnection.HTTP_OK;
+	        int responseCode = conn.getResponseCode();
+	        conn.disconnect();
+	        success = responseCode == HttpURLConnection.HTTP_OK;
 
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
+	        // Update reward status in the database
+	        try (Connection connDB = DatabaseConnection.getConnection()) {
+	            String updateStatusQuery = "UPDATE rewards SET status = ? WHERE subject = ? AND message = ?";
+	            try (PreparedStatement stmt = connDB.prepareStatement(updateStatusQuery)) {
+	                stmt.setString(1, success ? "Sent Successfully" : "Failed to Send");
+	                stmt.setString(2, subject);
+	                stmt.setString(3, message);
+	                stmt.executeUpdate();
+	                System.out.println("Reward status updated successfully.");
+	            }
+	        }
+
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	    }
+
+	    return success;
+	}
+
 	
 	public void checkRaffle() {
 		rewardTriggerService.triggerRaffleReward();
+	}
+	
+	private void refreshRewards(List<EmailReward> rewardList) {
+	    try (Connection conn = DatabaseConnection.getConnection()) {
+	        rewardList.clear();
+	        rewardList.addAll(loadRewardsFromDatabase(conn));
+	        System.out.println("Reward list refreshed.");
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	    }
+	}
+	
+	public static List<EmailReward> loadRewardsFromDatabase(Connection conn) throws SQLException {
+	    List<EmailReward> rewardList = new ArrayList<>();
+	    String query = "SELECT id, subject, message, trigger, recipients, status FROM rewards";
+
+	    try (PreparedStatement statement = conn.prepareStatement(query);
+	         ResultSet resultSet = statement.executeQuery()) {
+
+	        while (resultSet.next()) {
+	            String subject = resultSet.getString("subject");
+	            String message = resultSet.getString("message");
+	            String trigger = resultSet.getString("trigger");
+	            String recipientsString = resultSet.getString("recipients");
+	            String status = resultSet.getString("status");
+
+	            List<String> recipients = Arrays.asList(recipientsString.split(",\\s*"));
+	            EmailReward reward = new EmailReward(
+	                new SimpleStringProperty(subject),
+	                new SimpleStringProperty(message),
+	                new SimpleStringProperty(trigger),
+	                recipients,
+	                new SimpleStringProperty(status)
+	            );
+	            rewardList.add(reward);
+	        }
+	    }
+
+	    return rewardList;
 	}
 }
 
