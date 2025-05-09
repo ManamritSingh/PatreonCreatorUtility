@@ -21,7 +21,7 @@ public class OAuthRedirectServer {
                 String query = exchange.getRequestURI().getQuery();
                 if (query != null && query.contains("code=")) {
                     code = query.split("code=")[1].split("&")[0];
-                    String response = "✅ Authorization successful! You can close this tab.";
+                    String response = "Authorization successful! You can close this tab.";
                     exchange.sendResponseHeaders(200, response.length());
                     try (OutputStream os = exchange.getResponseBody()) {
                         os.write(response.getBytes());

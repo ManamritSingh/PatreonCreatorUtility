@@ -34,7 +34,7 @@ public class TestDataGenerator implements CommandLineRunner {
             TokenResponse token = TokenStore.load();
 
             if (token == null) {
-                System.err.println("❌ No saved token found. Authenticate first!");
+                System.err.println("No saved token found. Authenticate first!");
                 return;
             }
 
@@ -49,10 +49,10 @@ public class TestDataGenerator implements CommandLineRunner {
                 mockDataGenerator.generateFakeDataForDate(date, tiers, "TestDataGenerator");
             }
 
-            System.out.println("✅ 360 days of mock data seeded to database!");
+            System.out.println("360 days of mock data seeded to database!");
 
         } catch (Exception e) {
-            System.err.println("❌ Error generating mock data: " + e.getMessage());
+            System.err.println("Error generating mock data: " + e.getMessage());
             e.printStackTrace();
         }
     }

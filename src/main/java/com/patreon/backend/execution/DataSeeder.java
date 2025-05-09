@@ -38,7 +38,7 @@ public class DataSeeder {
             TokenResponse token = TokenStore.load();
 
             if (token == null) {
-                System.err.println("❌ No saved token found. Authenticate first!");
+                System.err.println("No saved token found. Authenticate first!");
                 return;
             }
 
@@ -66,7 +66,7 @@ public class DataSeeder {
                     }
                 }
 
-                // ❌ If any tier already has data for today, abort the entire operation
+                // If any tier already has data for today, abort the entire operation
                 boolean alreadyExists = tiers.stream().anyMatch(tier ->
                         snapshotRepository.existsByTierNameAndTimestampAndIsMock(
                                 tier.getTitle() == null ? "Untitled Tier" : tier.getTitle(),
@@ -76,7 +76,7 @@ public class DataSeeder {
                 );
 
                 if (alreadyExists) {
-                    System.out.println("⚠️ Tier snapshot data already exists for today. Skipping real data seeding.");
+                    System.out.println("⚠Tier snapshot data already exists for today. Skipping real data seeding.");
                     return;
                 }
 
@@ -96,12 +96,12 @@ public class DataSeeder {
                 }
 
                 snapshotRepository.saveAll(snapshots);
-                System.out.println("✅ Saved real members to database!");
+                System.out.println("Saved real members to database!");
             }
 
 
         } catch (Exception e) {
-            System.err.println("❌ Data seeding failed: " + e.getMessage());
+            System.err.println("Data seeding failed: " + e.getMessage());
             e.printStackTrace();
         }
     }

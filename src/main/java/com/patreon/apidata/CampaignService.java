@@ -37,7 +37,7 @@ public class CampaignService {
 
         JsonNode dataArray = root.get("data");
         if (dataArray == null || !dataArray.isArray() || dataArray.isEmpty()) {
-            System.err.println("❌ No campaign data found!");
+            System.err.println("No campaign data found!");
             System.err.println("Raw response:");
             System.err.println(response.body());
             return null;

@@ -38,7 +38,7 @@ public class MemberService {
 
         JsonNode dataArray = root.get("data");
         if (dataArray == null || !dataArray.isArray()) {
-            System.err.println("❌ No members found!");
+            System.err.println("No members found!");
             System.err.println("Raw response:");
             System.err.println(response.body());
             return members;
