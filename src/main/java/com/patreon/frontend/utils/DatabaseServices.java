@@ -255,8 +255,8 @@ public class DatabaseServices {
     public void loadUserFromDB(TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
     	String query = "SELECT id, address_line1, address_line2, address_name, age_range, city,"
     			+ "country, education_level, email, first_name, gender, income_range, is_active,"
-    			+ "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code "
-    			+ "FROM usercsv";  // match your actual DB table and columns
+    			+ "last_name, pledge, raffle_eligible, state, tier_id, zip_code "
+    			+ "FROM user";  // match your actual DB table and columns
 
     	Connection conn = null;
 
@@ -313,7 +313,7 @@ public class DatabaseServices {
     
     public static void createUserTable(Connection conn) {
     	String sql = """
-                CREATE TABLE IF NOT EXISTS usercsv (
+                CREATE TABLE IF NOT EXISTS user (
                     id TEXT, 
                     address_line1 TEXT, 
                     address_line2 TEXT, 
@@ -328,7 +328,7 @@ public class DatabaseServices {
     				income_range TEXT, 
     				is_active TEXT, 
     				last_name TEXT, 
-    				pledge_amount_cents INTEGER, 
+    				pledge TEXT, 
     				raffle_eligible TEXT, 
     				state TEXT, 
     				tier_id TEXT, 
@@ -345,48 +345,52 @@ public class DatabaseServices {
     }
     
     public void loadRewardsFromDB(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
-    	String query = "SELECT id, message, subject, trigger, recipients, status FROM rewards";
+        String query = "SELECT id, message, subject, trigger, recipients, status FROM rewards";
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
 
-    	Connection conn = null;
+        try {
+            conn = DatabaseConnection.getConnection();
+            stmt = conn.prepareStatement(query);
+            rs = stmt.executeQuery();
 
-    	try {conn = DatabaseConnection.getConnection();
-    		PreparedStatement stmt = conn.prepareStatement(query);
-    		ResultSet rs = stmt.executeQuery();
+            rewardList.clear();
 
-    		rewardList.clear();
+            while (rs.next()) {
+                EmailReward entry = new EmailReward(
+                        rs.getInt("id"),
+                        rs.getString("message"),
+                        rs.getString("subject"),
+                        rs.getString("trigger"),
+                        rs.getString("recipients"),
+                        rs.getString("status")
+                );
+                rewardList.add(entry);
+            }
 
-    		while (rs.next()) {
-    			EmailReward entry = new EmailReward(
-    					rs.getInt("id"),
-    					rs.getString("message"),
-    					rs.getString("subject"),
-    					rs.getString("trigger"),
-    					rs.getString("recipients"),
-    					rs.getString("status")
-    					
-    			);
+            rewardsTable.setItems(rewardList);
 
-    			rewardList.add(entry);
-    		}
-
-    		rewardsTable.setItems(rewardList);
-
-    		rs.close();
-    		stmt.close();
-    		conn.close();
-    		
-
-    	} catch (SQLException e) {
-    		if (e.getMessage().contains("no such table")) {
-    			System.out.println("Rewards table does not exist. Creating it...");
-    			if (conn != null) {
-    				createRewardsTable(conn);
-    			}
-    		} else {
-    			e.printStackTrace();
-    		}
-    	}
+        } catch (SQLException e) {
+            if (e.getMessage().contains("no such table")) {
+                System.out.println("Rewards table does not exist. Creating it...");
+                if (conn != null) {
+                    createRewardsTable(conn);
+                }
+            } else {
+                e.printStackTrace();
+            }
+        } finally {
+            try {
+                if (rs != null) rs.close();
+                if (stmt != null) stmt.close();
+                if (conn != null) conn.close();
+            } catch (SQLException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
+
     
     public static void createRewardsTable(Connection conn) {
     	String sql = """
@@ -563,11 +567,11 @@ public class DatabaseServices {
     }
     
     public static void saveUserToDatabase(Connection connection, List<UserEntry> userData) throws SQLException{
-    	String deleteSQL = "DELETE FROM usercsv";
-        String insertSQL = "INSERT INTO usercsv (" +
+    	String deleteSQL = "DELETE FROM user";
+        String insertSQL = "INSERT INTO user (" +
                 "id, address_line1, address_line2, address_name, age_range, city,"
                 + "country, education_level, email, first_name, gender, income_range, is_active,"
-                + "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code"
+                + "last_name, pledge, raffle_eligible, state, tier_id, zip_code"
                 + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         PreparedStatement deleteStmt = null;
@@ -683,7 +687,7 @@ public class DatabaseServices {
             ORDER BY tier_name, period
         """;
 
-        try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+        try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, timeFormat);
             pstmt.setBoolean(2, isMock);
 
@@ -735,7 +739,7 @@ public class DatabaseServices {
 		List<String> tierNames = new ArrayList<>();
 		String query = "SELECT DISTINCT tier_name FROM tier_snap WHERE is_mock = ? ORDER BY tier_name";
 
-		try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+		try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
 			pstmt.setBoolean(1, isMock);
 			ResultSet rs = pstmt.executeQuery();
 			while (rs.next()) {
@@ -748,15 +752,6 @@ public class DatabaseServices {
 		return tierNames;
 	}
 
-	private Connection connect() {
-		try {
-			String url = "jdbc:sqlite:JavaDatabase.db"; // adjust path if needed
-			return DriverManager.getConnection(url);
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
-	}
 	
 	public Map<String, Map<LocalDate, Double>> getAvgChurnRates(String interval, boolean isMock) {
 	    Map<String, Map<LocalDate, Double>> churnData = new HashMap<>();
@@ -781,7 +776,7 @@ public class DatabaseServices {
 	    ORDER BY t1.tier_name, t1.timestamp
 	    """;
 
-	    try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+	    try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
 	        pstmt.setBoolean(1, isMock);
 	        ResultSet rs = pstmt.executeQuery();
 
@@ -832,7 +827,7 @@ public class DatabaseServices {
 	    ORDER BY tier_name, week
 	    """;
 
-	    try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+	    try (Connection conn = DatabaseConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
 	        pstmt.setBoolean(1, isMock);
 	        ResultSet rs = pstmt.executeQuery();
 
@@ -897,6 +892,52 @@ public class DatabaseServices {
 	    System.out.println("Finished GetWeeklyChurnRates");
 	    return churnData;
 	}
-
 	
+		public static Set<String> getExistingSurveyEmails() {
+			Set<String> existingEmails = new HashSet<>();
+			String query = "SELECT email FROM surveys";  // Assuming your survey table has a column 'email'
+
+			try (Connection conn = DatabaseConnection.getConnection();
+					PreparedStatement stmt = conn.prepareStatement(query);
+					ResultSet rs = stmt.executeQuery()) {
+
+				while (rs.next()) {
+					String email = rs.getString("email");  // Get the email from the result set
+					existingEmails.add(email);            // Add email to the set
+				}
+
+			} catch (SQLException e) {
+				e.printStackTrace();
+			}
+
+			return existingEmails;
+		}
+		
+		public static ArrayList<EmailReward> getActiveSurveyRewards() {
+	        ArrayList<EmailReward> activeRewards = new ArrayList<>();
+	        String query = "SELECT * FROM rewards WHERE trigger = 'Survey Completion' AND status = 'Active'";  // Assuming you have a table 'rewards'
+
+	        try (Connection conn = DatabaseConnection.getConnection();
+	             PreparedStatement stmt = conn.prepareStatement(query);
+	             ResultSet rs = stmt.executeQuery()) {
+
+	            while (rs.next()) {
+	                // Assuming 'EmailReward' has a constructor that accepts all the necessary fields
+	                EmailReward reward = new EmailReward(
+	                    rs.getInt("id"),
+	                    rs.getString("message"),
+	                    rs.getString("subject"),
+	                    rs.getString("trigger"),
+	                    rs.getString("recipients"),
+	                    rs.getString("status")
+	                );
+	                activeRewards.add(reward);  // Add to the list
+	            }
+
+	        } catch (SQLException e) {
+	            e.printStackTrace();
+	        }
+
+	        return activeRewards;
+	    }
 }

@@ -1,11 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
+	<style>
+	        .container {
+	            max-width: 600px;
+	            margin: 0 auto;
+	            padding: 20px;
+	            text-align: center;
+	        }
+	        .success {
+	            font-size: 24px;
+	            margin-bottom: 20px;
+	        }
+	        .back-button {
+	            padding: 10px 15px;
+	            border: none;
+	            cursor: pointer;
+	            text-decoration: none;
+	            display: inline-block;
+	            margin-top: 20px;
+	        }
+	    </style>
 <head>
     <meta charset="UTF-8">
     <title>Email Sent</title>
 </head>
 <body>
-    <h2 th:text="${message}"></h2>
+	<div class="container">
+	        <h2 class="success">Success!</h2>
+	        <h3 th:text="${message}"></h3>
+	        <a href="/" class="back-button">Back to Email Form</a>
+	    </div>
 </body>
 </html>
 

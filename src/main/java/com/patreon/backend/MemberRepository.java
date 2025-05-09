@@ -13,6 +13,6 @@ public interface MemberRepository extends JpaRepository<Member, String> {
     @Query(value = "SELECT 'Tier 1' UNION SELECT 'Tier 2' UNION SELECT 'Tier 3' UNION SELECT 'All'", nativeQuery = true)
     List<String> findAllTiers();
 
-    List<Member> findByTierIdIn(Set<String> tierIds);
+    List<Member> findByTierIdIn(List<String> selectedTiers);
     List<Member> findByTierId(String tierId);
 }

@@ -12,7 +12,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
+import java.util.concurrent.CountDownLatch;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+
+import com.patreon.backend.RewardTriggerService;
 import com.patreon.frontend.models.EmailReward;
 import com.patreon.utils.DatabaseConnection;
 
@@ -35,8 +40,14 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.scene.Node;
 
+@Controller
 public class RewardController {
+
+	private DatabaseServices ds = new DatabaseServices();
+	@Autowired
+    private RewardTriggerService rewardTriggerService;
 
 	public void newReward(List<EmailReward> rewardList) {
 
@@ -48,19 +59,24 @@ public class RewardController {
         Label triggerLabel = new Label("Trigger:");
         ComboBox<String> triggerCombo = new ComboBox<>();
         triggerCombo.getItems().addAll(
-                "Send Now", "New Subscriber", "Upgraded Tier", "Survey Completion", "Yearly Anniversary", "Unsubscribed"
+                "Send Now", "New Subscriber", "Upgraded Tier", "Survey Completion", "Raffle", "Unsubscribed"
         );
         triggerCombo.setValue("Send Now");
 
         // Recipient checkboxes
         Label recipientLabel = new Label("Recipient:");
-        CheckBox everyone = new CheckBox("Everyone");
-        CheckBox tier1 = new CheckBox("Tier 1");
-        CheckBox tier2 = new CheckBox("Tier 2");
-        CheckBox tier3 = new CheckBox("Tier 3");
-
-        HBox recipientBox = new HBox(10, everyone, tier1, tier2, tier3);
+        HBox recipientBox = new HBox(10);
         recipientBox.setAlignment(Pos.CENTER_LEFT);
+
+        CheckBox everyone = new CheckBox("All");
+        recipientBox.getChildren().add(everyone);
+
+        // Dynamically load tiers
+        List<String> tiers = ds.getAllTiers(false);
+        for (String tier : tiers) {
+            CheckBox tierCheckbox = new CheckBox(tier);
+            recipientBox.getChildren().add(tierCheckbox);
+        }
 
         // Subject input
         Label subjectLabel = new Label("Subject:");
@@ -73,43 +89,44 @@ public class RewardController {
         messageArea.setPrefRowCount(6);
         messageArea.setWrapText(true);
         messageArea.setPromptText("Enter reward email message");
-        
         Tooltip tooltip = new Tooltip("Use {FIRST_NAME} and {LAST_NAME} to personalize emails.");
         Tooltip.install(messageArea, tooltip);
-
 
         // Done button
         Button doneButton = new Button("Done");
         doneButton.setOnAction(e -> {
             String trigger = triggerCombo.getValue();
             List<String> recipients = new ArrayList<>();
-            if (everyone.isSelected()) recipients.add("Everyone");
-            if (tier1.isSelected()) recipients.add("Tier 1");
-            if (tier2.isSelected()) recipients.add("Tier 2");
-            if (tier3.isSelected()) recipients.add("Tier 3");
-            
+
+            // Collect selected recipients
+            if (everyone.isSelected()) {
+                recipients.add("All");
+            } else {
+                for (Node node : recipientBox.getChildren()) {
+                    if (node instanceof CheckBox checkbox && checkbox.isSelected() && !checkbox.equals(everyone)) {
+                        recipients.add(checkbox.getText());
+                    }
+                }
+            }
 
             String subject = subjectField.getText();
-            SimpleStringProperty subjectText = new SimpleStringProperty(subject);
             String message = messageArea.getText();
+            SimpleStringProperty subjectText = new SimpleStringProperty(subject);
             SimpleStringProperty messageText = new SimpleStringProperty(message);
             SimpleStringProperty triggerText = new SimpleStringProperty(trigger);
             SimpleStringProperty statusText = new SimpleStringProperty("");
-            
+
             if (subject.isBlank() || recipients.isEmpty()) {
                 Alert alert = new Alert(Alert.AlertType.WARNING, "Please enter a subject and select at least one recipient.", ButtonType.OK);
                 alert.showAndWait();
                 return;
             }
-            
-            if ("Send Now".equals(trigger)) {
-                List<String> selectedTiers = new ArrayList<>();
-                if (everyone.isSelected()) selectedTiers.add("All");
-                if (tier1.isSelected()) selectedTiers.add("1");
-                if (tier2.isSelected()) selectedTiers.add("2");
-                if (tier3.isSelected()) selectedTiers.add("3");
 
-                boolean success = sendEmail(subject, message, selectedTiers);
+            // Handle Send Now logic
+            if ("Send Now".equals(trigger)) {
+                boolean success = sendEmail(subject, message, recipients);
+                String statusMessage = success ? "Sent Successfully" : "Failed to Send";
+                statusText.set(statusMessage);
 
                 Alert alert1 = new Alert(success 
                     ? Alert.AlertType.INFORMATION 
@@ -118,32 +135,30 @@ public class RewardController {
                     ButtonType.OK
                 );
                 alert1.showAndWait();
+            } else {
+                statusText.set("Active");
             }
-            
+
+            // Create and save the reward
             EmailReward reward = new EmailReward(messageText, subjectText, triggerText, recipients, statusText);
             rewardList.add(reward);
+
             try (Connection conn = DatabaseConnection.getConnection()) {
                 DatabaseServices.saveRewardToDatabase(conn, reward);
                 System.out.println("Reward saved successfully.");
             } catch (SQLException e1) {
                 e1.printStackTrace();
+                Alert errorAlert = new Alert(Alert.AlertType.ERROR, "Failed to save the reward.", ButtonType.OK);
+                errorAlert.showAndWait();
             }
-            
-            // Simulate saving logic
-            System.out.println("=== Email Trigger Saved ===");
-            System.out.println("Trigger: " + trigger);
-            System.out.println("Recipients: " + recipients);
-            System.out.println("Subject: " + subject);
-            System.out.println("Message: " + message);
-            System.out.println("===========================");
 
             popupStage.close();
         });
-        
-        //Cancel button
+
+        // Cancel button
         Button cancelButton = new Button("Cancel");
         cancelButton.setOnAction(e -> popupStage.close());
-   
+
         VBox layout = new VBox(10,
                 new HBox(10, triggerLabel, triggerCombo),
                 new VBox(5, recipientLabel, recipientBox),
@@ -157,6 +172,7 @@ public class RewardController {
         popupStage.setScene(new Scene(layout, 450, 400));
         popupStage.showAndWait();
     }
+
 	
 	public void deleteSelectedReward(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
 	    EmailReward selected = rewardsTable.getSelectionModel().getSelectedItem();
@@ -225,5 +241,9 @@ public class RewardController {
             return false;
         }
     }
+	
+	public void checkRaffle() {
+		rewardTriggerService.triggerRaffleReward();
+	}
 }
 

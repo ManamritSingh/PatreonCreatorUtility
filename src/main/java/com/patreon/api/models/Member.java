@@ -6,7 +6,7 @@ import javax.persistence.Id;
 @Entity
 public class Member {
 
-    @Id
+	@Id
     private String id;
     private String firstName;
     private String lastName;
@@ -103,4 +103,11 @@ public class Member {
     public void setFollower(boolean follower) {
         isFollower = follower;
     }
+    @Override
+	public String toString() {
+		return "Member [id=" + id + ", firstName=" + firstName + ", lastName=" + lastName + ", email=" + email
+				+ ", isActive=" + isActive + ", tierId=" + tierId + ", pledgeAmountCents=" + pledgeAmountCents
+				+ ", isFollower=" + isFollower + ", isTest=" + isTest + "]";
+	}
+
 }

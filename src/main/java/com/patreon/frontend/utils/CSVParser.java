@@ -6,9 +6,16 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+
+import com.patreon.backend.RewardTriggerService;
 import com.patreon.frontend.models.EarningEntry;
+import com.patreon.frontend.models.EmailReward;
 import com.patreon.frontend.models.PostEntry;
 import com.patreon.frontend.models.SurveyEntry;
 import com.patreon.frontend.models.UserEntry;
@@ -21,7 +28,10 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.Alert;
 import javafx.scene.control.TableView;
 
+@Controller
 public class CSVParser {
+	@Autowired
+    private RewardTriggerService rewardTriggerService;
 	
 	public void parseEarningsCSV(File file, TableView<EarningEntry> earningTable, ObservableList<EarningEntry> earningData ){
     	earningData.clear();
@@ -162,61 +172,103 @@ public class CSVParser {
         }
     }
 
-	public void parseSurveysCSV(File file, TableView<SurveyEntry> surveyTable, ObservableList<SurveyEntry> surveyData){
-    	try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
-            String line;
-            String header = reader.readLine();
+	public void parseSurveysCSV(File file, TableView<SurveyEntry> surveyTable, ObservableList<SurveyEntry> surveyData) {
+	    try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+	        String line;
+	        String header = reader.readLine();
 
-            if (header == null) {
-                showAlert("Error", "The file is empty.");
-            }
+	        if (header == null) {
+	            showAlert("Error", "The file is empty.");
+	            return;
+	        }
 
-            // Expected column headers (first few are enough to identify it as an earnings file)
-            String[] expectedHeaders = {
-                    "Submitted At (UTC)","Name","Email","Tier","Survey Choice","Additional Comment"
-            };
+	        // Expected column headers
+	        String[] expectedHeaders = {
+	            "Submitted At (UTC)", "Name", "Email", "Tier", "Survey Choice", "Additional Comment"
+	        };
 
-            // Normalize and split header (handle comma or tab)
-            String[] actualHeaders = header.toLowerCase().split(",",-1);
+	        // Normalize and split header
+	        String[] actualHeaders = header.toLowerCase().split(",", -1);
 
-            for (String expected : expectedHeaders) {
-                boolean found = Arrays.stream(actualHeaders)
-                        .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
-                if (!found) {
-                    showAlert("Invalid File", "This doesn't appear to be a surveys CSV.");
-                }
-            }
+	        // Validate CSV headers
+	        for (String expected : expectedHeaders) {
+	            boolean found = Arrays.stream(actualHeaders)
+	                    .anyMatch(h -> h.trim().contains(expected.toLowerCase()));
+	            if (!found) {
+	                showAlert("Invalid File", "This doesn't appear to be a valid surveys CSV.");
+	                return;
+	            }
+	        }
+
+	        // Initialize new entries list
+	        ArrayList<SurveyEntry> newEntries = new ArrayList<>();
+
+	        // Load existing emails from the database
+	        Set<String> existingEmails = DatabaseServices.getExistingSurveyEmails();
+
+	        // Check for active "Survey Completion" rewards
+	        ArrayList<EmailReward> activeSurveyRewards = DatabaseServices.getActiveSurveyRewards();
+	        if (activeSurveyRewards.isEmpty()) {
+	            showAlert("No Active Rewards", "No active 'Survey Completion' rewards found.");
+	            return;
+	        }
+
+	        // Parse each line in the CSV
+	        while ((line = reader.readLine()) != null) {
+	            String[] tokens = line.split(",", -1);
+	            String email = tokens[2].trim();
+	            String tier = tokens[3].trim();
+
+	            // Process only new survey entries (not existing emails)
+	            if (!existingEmails.contains(email)) {
+	                // Create new SurveyEntry object
+	                SurveyEntry entry = new SurveyEntry(
+	                        new SimpleStringProperty(tokens[0].trim()),  // Submitted At (UTC)
+	                        new SimpleStringProperty(tokens[1].trim()),  // Name
+	                        new SimpleStringProperty(email),             // Email
+	                        new SimpleStringProperty(tier),              // Tier
+	                        new SimpleStringProperty(tokens[4].trim()),  // Survey Choice
+	                        new SimpleStringProperty(tokens[5].trim())   // Additional Comment
+	                );
+
+	                // Add the new entry to both the list and the ObservableList
+	                newEntries.add(entry);
+	                surveyData.add(entry);
+
+	                // Check if the user is eligible for any rewards based on their tier
+	                for (EmailReward reward : activeSurveyRewards) {
+	                    if (reward.getRecepients().contains(tier)) {
+	                        // Trigger the reward for this survey entry
+	                        rewardTriggerService.handleSurveyCompletion(email, tier);;
+	                        System.out.println("Survey reward sent to: " + email + " (Tier: " + tier + ")");
+	                    }
+	                }
+	            }
+	        }
+
+	        // Save only new entries to the database
+	        if (!newEntries.isEmpty()) {
+	            try (Connection conn = DatabaseConnection.getConnection()) {
+	                DatabaseServices.saveSurveyToDatabase(conn, newEntries);
+	                System.out.println("Survey data saved successfully.");
+	            } catch (SQLException e) {
+	                e.printStackTrace();
+	            }
+	        }
+
+	        // Update the TableView with the latest survey data
+	        surveyTable.setItems(surveyData);
+
+	    } catch (IOException e) {
+	        e.printStackTrace();
+	        showAlert("File Error", "Could not read the file.");
+	    } catch (Exception e) {
+	        e.printStackTrace();
+	        showAlert("Parsing Error", "There was an error while parsing the CSV.");
+	    }
+	}
 
 
-            while ((line = reader.readLine()) != null) {
-                String[] tokens = line.split(",",-1); 
-                SurveyEntry entry = new SurveyEntry(
-                        new SimpleStringProperty(tokens[0].trim()),
-                        new SimpleStringProperty(tokens[1].trim()),
-                        new SimpleStringProperty(tokens[2].trim()),
-                        new SimpleStringProperty(tokens[3].trim()),
-                        new SimpleStringProperty(tokens[4].trim()),
-                        new SimpleStringProperty(tokens[5].trim())
-                );
-                surveyData.add(entry);
-            }
-
-            surveyTable.setItems(surveyData);
-            try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseServices.saveSurveyToDatabase(conn, surveyData);
-                System.out.println("Survey data saved successfully.");
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            showAlert("File Error", "Could not read the file.");
-        } catch (Exception e) {
-            e.printStackTrace();
-            showAlert("Parsing Error", "There was an error while parsing the CSV.");
-        }
-    }
 	
 	public void parseUserCSV(File file, TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
     	userData.clear();
@@ -292,10 +344,6 @@ public class CSVParser {
             showAlert("Parsing Error", "There was an error while parsing the CSV.");
         }
     }
-	
-	
-	
-	
 	
 	private double parsePercent(String percentString) {
         return Double.parseDouble(percentString.replace("%", "").trim());

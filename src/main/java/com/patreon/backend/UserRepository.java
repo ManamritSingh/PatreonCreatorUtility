@@ -1,19 +1,12 @@
-//package com.patreon.backend;
-//
-//
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.jdbc.core.JdbcTemplate;
-//import org.springframework.stereotype.Repository;
-//
-//import java.util.List;
-//
-//@Repository
-//public class UserRepository{
-//	@Autowired
-//	private JdbcTemplate jdbcTemplate;
-//
-//	public List<String> findAllEmails(){
-//
-//		return jdbcTemplate.queryForList("SELECT email FROM users", String.class);
-//	}
-//}
+package com.patreon.backend;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import com.patreon.backend.models.User;
+
+import java.util.List;
+
+public interface UserRepository extends JpaRepository<User, String> {
+    List<User> findByRaffleEligible(String raffleEligible);
+}
+

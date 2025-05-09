@@ -66,9 +66,9 @@ public class FrontendDriver extends Application {
 	private ObservableList<EmailReward> rewardList = FXCollections.observableArrayList();
 	private ObservableList<UserEntry> userData = FXCollections.observableArrayList();
     
-    private RewardController rc = new RewardController();
+    private RewardController rc;
     private TableCreator tc = new TableCreator();
-    private CSVParser cp = new CSVParser();
+    private CSVParser cp;
     private ChartCreator cc = new ChartCreator();
     private DatabaseServices ds = new DatabaseServices();
     
@@ -81,7 +81,12 @@ public class FrontendDriver extends Application {
     @Override
     public void start(Stage primaryStage) {
         //start spring in a new parallel thread
-        Thread springThread = new Thread(() -> context = SpringApplication.run(com.patreon.backend.DemoApplication.class));
+    	Thread springThread = new Thread(() -> {
+            context = SpringApplication.run(com.patreon.backend.DemoApplication.class);
+            // Once Spring is ready, get the RewardController bean
+            rc = context.getBean(RewardController.class);
+            cp = context.getBean(CSVParser.class);
+        });
         springThread.setDaemon(true);
         springThread.start();
 
@@ -262,6 +267,22 @@ public class FrontendDriver extends Application {
                 return;
             }
         }
+        HBox mockPanel = new HBox(5);
+        mockPanel.setPadding(new Insets(5));
+	    mockPanel.setStyle("-fx-background-color: #f0f0f0;");
+	    mockPanel.setAlignment(Pos.CENTER_LEFT);
+	    mockPanel.setMaxWidth(Double.MAX_VALUE);
+        
+	    Label mockLabel = new Label("For demo, click buttom to mock API member calls:");
+	    Button mockButton = new Button("Mock API call");
+	    Region spacer = new Region();
+	    HBox.setHgrow(spacer, Priority.ALWAYS);
+	    Label statusLabel = new Label();
+	    
+	    mockButton.setOnAction(e -> generateMockMember(statusLabel));
+	    mockPanel.getChildren().setAll(mockLabel,spacer, mockButton);
+	    
+	    
 
         // Left VBox with buttons
         VBox buttonPanel = new VBox(10);
@@ -272,7 +293,7 @@ public class FrontendDriver extends Application {
         Button newButton = new Button("New");
         Button deleteButton = new Button("Delete");
 
-        newButton.setOnAction(e -> rc.newReward(rewardList));
+        newButton.setOnAction(e ->{ rc.newReward(rewardList); rc.checkRaffle();});
         deleteButton.setOnAction(e -> rc.deleteSelectedReward(rewardsTable, rewardList));
 
         buttonPanel.getChildren().addAll(newButton, deleteButton);
@@ -287,16 +308,13 @@ public class FrontendDriver extends Application {
         VBox.setVgrow(rewardsTable, Priority.ALWAYS);
 
         // HBox with buttons and table, make tableContainer grow
-        HBox contentBox = new HBox(20, buttonPanel, tableContainer);
+        HBox contentBox = new HBox(20,buttonPanel, tableContainer);
         contentBox.setPadding(new Insets(10));
         HBox.setHgrow(tableContainer, Priority.ALWAYS); // allow right side to grow
 
         // ScrollPane to wrap everything
-        ScrollPane scrollPane = new ScrollPane(contentBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setPadding(new Insets(10));
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        VBox scrollPane = new VBox();
+        scrollPane.getChildren().addAll(mockPanel,contentBox, statusLabel);
 
         Tab rewardsTab = new Tab("Email Rewards", scrollPane);
         rewardsTab.setClosable(true);
@@ -533,4 +551,36 @@ public class FrontendDriver extends Application {
         // In a real application, you'd check which tab is selected
         return "Revenue";  // Return a dummy value for now
     }
+    
+    private void generateMockMember(Label statusLabel) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:8080/generate-mock-member"))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(response -> Platform.runLater(() -> {
+                    statusLabel.setText("Mock member generated successfully!");
+                    statusLabel.setStyle("-fx-text-fill: green;");
+                }))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        statusLabel.setText("Failed to generate mock member.");
+                        statusLabel.setStyle("-fx-text-fill: red;");
+                    });
+                    ex.printStackTrace();
+                    return null;
+                });
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            Platform.runLater(() -> {
+                statusLabel.setText("Failed to trigger mock member API.");
+                statusLabel.setStyle("-fx-text-fill: red;");
+            });
+        }
+    }
+
+
 }
