@@ -10,7 +10,7 @@ public class DatabaseConnection {
         try {
             String url = "jdbc:sqlite:JavaDatabase.db";
             Connection conn = DriverManager.getConnection(url);
-            System.out.println("✅ Connected to DB at: " + new File("JavaDatabase.db").getAbsolutePath());
+            System.out.println("Connected to DB at: " + new File("JavaDatabase.db").getAbsolutePath());
             return conn;
         } catch (SQLException e) {
             e.printStackTrace();

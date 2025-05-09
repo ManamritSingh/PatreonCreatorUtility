@@ -28,7 +28,7 @@ public class DataSeederController {
     @PostMapping("/generate")
     public String generateData(@RequestParam boolean mock) {
         dataSeeder.seedData(mock);
-        return mock ? "✅ Fake data generated!" : "✅ Real data generated!";
+        return mock ? "Fake data generated!" : "Real data generated!";
     }
 
     @PostMapping("/generate/yearly-fake")
@@ -48,10 +48,10 @@ public class DataSeederController {
             Campaign campaign = campaignService.getCampaignWithTiers();
             mockDataGenerator.generateOneYearOfFakeData(campaign.tiers);
 
-            return ResponseEntity.ok("✅ 360 days of mock data generated.");
+            return ResponseEntity.ok("360 days of mock data generated.");
         } catch (Exception e) {
         	
-            return ResponseEntity.status(500).body("❌ Failed: " + e.getMessage());
+            return ResponseEntity.status(500).body("Failed: " + e.getMessage());
         }
     }
 }

@@ -34,7 +34,7 @@ public class TierDataFetchAPI implements CommandLineRunner {
             TokenResponse token = TokenStore.load();
 
             if (token == null) {
-                System.err.println("❌ No saved token found. Authenticate first!");
+                System.err.println("No saved token found. Authenticate first!");
                 return;
             }
 
@@ -75,7 +75,7 @@ public class TierDataFetchAPI implements CommandLineRunner {
             System.out.println("✅ Real data saved to database successfully!");
 
         } catch (Exception e) {
-            System.err.println("❌ Error: " + e.getMessage());
+            System.err.println("Error: " + e.getMessage());
             e.printStackTrace();
         }
     }

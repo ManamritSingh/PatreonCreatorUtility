@@ -24,14 +24,14 @@ public class Main {
 
         if (TokenStore.exists()) {
             token = TokenStore.load();
-            System.out.println("🔄 Loaded token from file.");
+            System.out.println("Loaded token from file.");
             if (token.isExpired()) {
-                System.out.println("🔁 Token expired. Refreshing...");
+                System.out.println("token expired. Refreshing...");
                 token = service.refreshToken(token.refresh_token);
                 TokenStore.save(token);
-                System.out.println("✅ Refreshed token saved.");
+                System.out.println("Refreshed token saved.");
             } else {
-                System.out.println("✅ Token is still valid.");
+                System.out.println("Token is still valid.");
             }
         }
 
@@ -52,15 +52,15 @@ public class Main {
             }
 
             String code = OAuthRedirectServer.getCode();
-            System.out.println("✅ Received code: " + code);
+            System.out.println("Received code: " + code);
 
             // Exchange code for token
             token = service.exchangeCodeForToken(code);
             TokenStore.save(token);
-            System.out.println("💾 Token saved to file.");
+            System.out.println("Token saved to file.");
         }
         //basic handshake
-        System.out.println("✅ Access Token Ready: " + token.access_token);
+        System.out.println("Access Token Ready: " + token.access_token);
 
         PatreonClient client = new PatreonClient(token.access_token);
         String userJson = client.getUserIdentity();
@@ -71,8 +71,8 @@ public class Main {
         CampaignService campaignService = new CampaignService(token.access_token);
         Campaign campaign = campaignService.getCampaignWithTiers();
 
-        System.out.println("📢 Campaign: " + campaign.name);
-        System.out.println("🎯 Tiers:");
+        System.out.println("Campaign: " + campaign.name);
+        System.out.println("Tiers:");
         for (Tier tier : campaign.tiers) {
             System.out.printf("- %s (%d cents)\n", tier.getTitle(), tier.getAmountCents());
         }
@@ -93,7 +93,7 @@ public class Main {
         }
 
         // Display earnings by tier name
-        System.out.println("💰 Earnings by Tier:");
+        System.out.println("Earnings by Tier:");
         for (Tier tier : campaign.tiers) {
             int total = earningsByTier.getOrDefault(tier.getId(), 0);
             System.out.printf("- %s: $%.2f\n", tier.getTitle(), total / 100.0);
@@ -119,7 +119,7 @@ public class Main {
             }
         }
 
-        System.out.println("\n📊 Tier-wise Patron Count and Revenue:");
+        System.out.println("\nTier-wise Patron Count and Revenue:");
         for (Tier tier : campaign.tiers) {
             int count = tierPatronCounts.getOrDefault(tier.getId(), 0);
             int earningsCents = tierEarnings.getOrDefault(tier.getId(), 0);
