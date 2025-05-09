@@ -6,6 +6,9 @@ import javafx.beans.property.SimpleStringProperty;
 
 import java.time.Month;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.util.Locale;
 
 public class EarningEntry {
 
@@ -207,5 +210,19 @@ public class EarningEntry {
     public double getEarningsValue() {
         return earnings.get();
     }
+    
+    public int getMonthNumber() {
+        try {
+            return Month.valueOf(getMonthValue().toUpperCase()).getValue();
+        } catch (IllegalArgumentException e) {
+            // Handle abbreviated month names like "Jan", "Feb", etc.
+            DateTimeFormatter parser = new DateTimeFormatterBuilder()
+                .parseCaseInsensitive()
+                .appendPattern("MMM")
+                .toFormatter(Locale.ENGLISH);
+            return Month.from(parser.parse(getMonthValue())).getValue();
+        }
+    }
+
 
 }

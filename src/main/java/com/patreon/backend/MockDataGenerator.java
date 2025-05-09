@@ -32,6 +32,7 @@ public class MockDataGenerator {
 
         for (Tier tier : tiers) {
             String tierName = (tier.getTitle() == null || tier.getTitle().isBlank()) ? "Untitled Tier" : tier.getTitle();
+            System.out.println("Attempting to create mock data for tier: " + tierName);
 
             boolean exists = repo.existsByTierNameAndTimestampAndIsMock(tierName, date.toString(),true);
             if (exists) {

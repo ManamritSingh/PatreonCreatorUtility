@@ -5,6 +5,7 @@ import com.patreon.api.models.Member;
 import com.patreon.api.models.Tier;
 import io.github.cdimascio.dotenv.Dotenv;
 import com.patreon.apidata.*;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +13,7 @@ import java.util.Map;
 
 public class Main {
     public static void main(String[] args) throws Exception {
-        Dotenv dotenv = Dotenv.load();
+    	Dotenv dotenv = Dotenv.load();
 
         String clientId = dotenv.get("CLIENT_ID");
         String clientSecret = dotenv.get("CLIENT_SECRET");

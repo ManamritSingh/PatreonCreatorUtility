@@ -1,11 +1,17 @@
 package com.patreon.frontend.utils;
 
 import java.time.LocalDate;
+import java.time.Month;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 import com.patreon.frontend.models.*;
 
@@ -23,15 +29,16 @@ import javafx.scene.chart.StackedBarChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TableView;
 import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.Tooltip;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 
 public class ChartCreator {
-	private LineChart<String, Number> monthlyEarningsChart;
-    private LineChart<String, Number> yearlyEarningsChart;
     
     private StackedBarChart<String, Number> postSBC;
     
@@ -59,6 +66,18 @@ public class ChartCreator {
             double value = entry.getEarnings().get();
             series.getData().add(new XYChart.Data<>(label, value));
         }
+        return series;
+    }
+    
+    private XYChart.Series<String, Number> buildMonthlySeriesForYear(List<EarningEntry> entries) {
+        XYChart.Series<String, Number> series = new XYChart.Series<>();
+        entries.stream()
+        .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber))
+        .forEach(entry -> {
+            String label = entry.getMonthValue().substring(0, 3); // Still use short label
+            series.getData().add(new XYChart.Data<>(label, entry.getEarnings().get()));
+        });
+
         return series;
     }
 
@@ -142,9 +161,27 @@ public class ChartCreator {
     }
     
     public HBox createMonthlyYearlyEarnings(TableView<EarningEntry> earningTable) {
-    	HBox window = new HBox(10); // Add spacing between toggle and chart
-    	XYChart.Series<String, Number> monthlyEarningsSeries = new XYChart.Series<>();
-        XYChart.Series<String, Number> yearlyEarningsSeries = new XYChart.Series<>();
+        HBox window = new HBox(10);
+        VBox controlBox = new VBox(10);
+        controlBox.setAlignment(Pos.TOP_LEFT);
+        controlBox.setPadding(new Insets(10));
+
+        // Group data by year
+        Map<Integer, List<EarningEntry>> earningsByYear = earningTable.getItems()
+                .stream()
+                .collect(Collectors.groupingBy(EarningEntry::getYearValue));
+
+        // Year selection ComboBox with "All" first, then years in descending order
+        ComboBox<String> yearSelector = new ComboBox<>();
+        List<String> years = earningsByYear.keySet().stream()
+                .sorted(Comparator.reverseOrder()) // Sort descending: most recent first
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+
+        years.add(0, "All"); // Add "All" at the top
+        yearSelector.getItems().addAll(years);
+        yearSelector.getSelectionModel().selectFirst(); // Default to "All"
+
 
         // Create toggle buttons
         RadioButton monthlyButton = new RadioButton("Monthly");
@@ -152,37 +189,46 @@ public class ChartCreator {
         ToggleGroup viewToggle = new ToggleGroup();
         monthlyButton.setToggleGroup(viewToggle);
         yearlyButton.setToggleGroup(viewToggle);
-        monthlyButton.setSelected(true); // Default view is monthly
+        monthlyButton.setSelected(true);
 
-        VBox toggleBox = new VBox(10, monthlyButton, yearlyButton);
-        toggleBox.setAlignment(Pos.TOP_LEFT);
-        toggleBox.setPadding(new Insets(10));
+        controlBox.getChildren().addAll(new Label("Select Year:"), yearSelector, monthlyButton, yearlyButton);
 
-        // Build data series and charts
-        monthlyEarningsSeries = buildMonthlyEarningsSeries(earningTable);
-        yearlyEarningsSeries = buildYearlyEarningsSeries(earningTable);
+        // Initial series and charts
+        XYChart.Series<String, Number> monthlySeries = buildMonthlyEarningsSeries(earningTable); // "All" by default
+        XYChart.Series<String, Number> yearlySeries = buildYearlyEarningsSeries(earningTable);
 
-        monthlyEarningsChart = createLineChart("Monthly Earnings", monthlyEarningsSeries);
-        yearlyEarningsChart = createLineChart("Yearly Earnings", yearlyEarningsSeries);
+        LineChart<String, Number> monthlyChart = createLineChart("Monthly Earnings (All Years)", monthlySeries);
+        LineChart<String, Number> yearlyChart = createLineChart("Yearly Earnings", yearlySeries);
 
-        // Wrap the chart in a Region to allow resizing
-        StackPane chartPane = new StackPane(monthlyEarningsChart);
-        chartPane.setMaxWidth(Double.MAX_VALUE);
+        StackPane chartPane = new StackPane(monthlyChart);
         HBox.setHgrow(chartPane, Priority.ALWAYS);
 
-        // Toggle between charts
-        viewToggle.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
-            if (newToggle == monthlyButton) {
-                chartPane.getChildren().setAll(monthlyEarningsChart);
-            } else if (newToggle == yearlyButton) {
-                chartPane.getChildren().setAll(yearlyEarningsChart);
+        // Year selector listener
+        yearSelector.setOnAction(e -> {
+            String selected = yearSelector.getValue();
+            if ("All".equals(selected)) {
+                XYChart.Series<String, Number> allSeries = buildMonthlyEarningsSeries(earningTable);
+                monthlyChart.getData().setAll(allSeries);
+                monthlyChart.setTitle("Monthly Earnings (All Years)");
+            } else {
+                int selectedYear = Integer.parseInt(selected);
+                XYChart.Series<String, Number> newSeries = buildMonthlySeriesForYear(earningsByYear.get(selectedYear));
+                monthlyChart.getData().setAll(newSeries);
+                monthlyChart.setTitle("Monthly Earnings (" + selected + ")");
             }
         });
 
-        window.getChildren().setAll(toggleBox, chartPane);
-        window.setPadding(new Insets(10));
-        HBox.setHgrow(window, Priority.ALWAYS);
+        // Chart toggle listener
+        viewToggle.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+            if (newToggle == monthlyButton) {
+                chartPane.getChildren().setAll(monthlyChart);
+            } else if (newToggle == yearlyButton) {
+                chartPane.getChildren().setAll(yearlyChart);
+            }
+        });
 
+        window.getChildren().addAll(controlBox, chartPane);
+        window.setPadding(new Insets(10));
         return window;
     }
 
@@ -378,7 +424,7 @@ public class ChartCreator {
             double incomeMid = getMidpoint(user.getIncomeRange().get());
             double pledge = Double.parseDouble(user.getPledge().get());
             String tier = user.getTier().get(); // Assuming this returns "1", "2", "3", etc.
-
+            
             // Apply jitter to income and pledge
             incomeMid += (random.nextDouble() - 0.5) * jitterAmount;
             pledge += (random.nextDouble() - 0.5) * jitterAmount;
@@ -486,73 +532,257 @@ public class ChartCreator {
     }
 
     // 1. Retention Line Chart
-    public LineChart<String, Number> createRetentionLineChart(String interval, List<String> selectedTiers, boolean isMock) {
-        DatabaseServices db = new DatabaseServices();
-        Map<String, Map<LocalDate, Integer>> retentionData = db.getTierRetentionData(interval, isMock);
+    public HBox createRetentionLineChart(String initialInterval, List<String> allTiers, boolean isMock) {
+        DatabaseServices ds = new DatabaseServices();
+        VBox controlBox = new VBox(10);
+        controlBox.setAlignment(Pos.TOP_LEFT);
+        controlBox.setPadding(new Insets(10));
 
-        LineChart<String, Number> retentionChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
-        retentionChart.setTitle("Patron Retention - " + interval);
-        retentionChart.setMinWidth(1000);
-        HBox.setHgrow(retentionChart, Priority.ALWAYS);
+        Label intervalLabel = new Label("Select Interval:");
+        ComboBox<String> intervalBox = new ComboBox<>();
+        intervalBox.getItems().addAll("Weekly", "Monthly", "Yearly");
+        intervalBox.setValue(initialInterval);
 
-        for (String tier : selectedTiers) {
-            if (!retentionData.containsKey(tier)) continue;
-            XYChart.Series<String, Number> series = new XYChart.Series<>();
-            series.setName(tier);
-            for (Map.Entry<LocalDate, Integer> entry : retentionData.get(tier).entrySet()) {
-                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
-            }
-            retentionChart.getData().add(series);
+        Label tierLabel = new Label("Select Tiers:");
+        VBox tierCheckboxes = new VBox(5);
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        for (String tier : allTiers) {
+            CheckBox cb = new CheckBox(tier);
+            cb.setSelected(true);
+            checkBoxes.add(cb);
+            tierCheckboxes.getChildren().add(cb);
         }
 
-        return retentionChart;
+        controlBox.getChildren().addAll(intervalLabel, intervalBox, tierLabel, tierCheckboxes);
+
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> retentionChart = new LineChart<>(xAxis, yAxis);
+        retentionChart.setAnimated(false);
+        retentionChart.setTitle("Patron Retention - " + initialInterval);
+        xAxis.setLabel("Time");
+        yAxis.setLabel("Patrons");
+
+        // Match style to the example
+        xAxis.setTickLabelRotation(-90);
+        xAxis.setTickLabelFill(Color.DIMGRAY);
+        yAxis.setTickLabelFill(Color.DIMGRAY);
+        xAxis.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        yAxis.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+
+        // Stretch the chart
+        HBox.setHgrow(retentionChart, Priority.ALWAYS);
+        retentionChart.setMaxWidth(Double.MAX_VALUE);
+
+        // Keep a map of tier -> series
+        Map<String, XYChart.Series<String, Number>> seriesMap = new LinkedHashMap<>();
+
+        // Function to reload data for the selected interval
+        Runnable refreshData = () -> {
+            seriesMap.clear();
+            String selectedInterval = intervalBox.getValue().toLowerCase();
+
+            DateTimeFormatter formatter = switch (selectedInterval) {
+                case "Weekly" -> DateTimeFormatter.ofPattern("'W'w YYYY");
+                case "Yearly" -> DateTimeFormatter.ofPattern("yyyy");
+                case "Monthly" -> DateTimeFormatter.ofPattern("MMM yyyy");
+                default -> DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            };
+
+            // Fetch the appropriate data (real or fake) based on `isMock`
+            Map<String, Map<LocalDate, Integer>> retentionData = ds.getTierRetentionData(selectedInterval, isMock);
+
+            for (String tier : allTiers) {
+                XYChart.Series<String, Number> series = new XYChart.Series<>();
+                series.setName(tier);
+                if (retentionData.containsKey(tier)) {
+                    for (Map.Entry<LocalDate, Integer> entry : retentionData.get(tier).entrySet()) {
+                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
+                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
+                    }
+                }
+                seriesMap.put(tier, series);
+            }
+        };
+
+        Runnable updateChart = () -> {
+            retentionChart.getData().clear();
+            for (CheckBox cb : checkBoxes) {
+                if (cb.isSelected()) {
+                    retentionChart.getData().add(seriesMap.get(cb.getText()));
+                }
+            }
+            retentionChart.setTitle("Patron Retention - " + intervalBox.getValue());
+        };
+
+        intervalBox.setOnAction(e -> {
+            refreshData.run();
+            updateChart.run();
+        });
+
+        checkBoxes.forEach(cb -> cb.setOnAction(e -> updateChart.run()));
+
+        // Initial setup
+        refreshData.run();
+        updateChart.run();
+
+        HBox layout = new HBox(20, controlBox, retentionChart);
+        layout.setPadding(new Insets(10));
+        layout.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(layout, Priority.ALWAYS);
+        layout.setMaxWidth(Double.MAX_VALUE);
+        return layout;
     }
 
     // 2. Avg Churn Bar Chart
-    public BarChart<String, Number> createAvgChurnChart(String interval, List<String> selectedTiers, boolean isMock) {
-        DatabaseServices db = new DatabaseServices();
-        Map<String, Map<LocalDate, Double>> churnData = db.getAvgChurnRates(interval, isMock);
+    public HBox createAvgChurnChart(String interval, List<String> allTiers, boolean isMock) {
+        DatabaseServices ds = new DatabaseServices();
+        Map<String, Map<LocalDate, Double>> churnData = ds.getAvgChurnRates(interval, isMock);
 
-        BarChart<String, Number> churnChart = new BarChart<>(new CategoryAxis(), new NumberAxis());
+        if (churnData == null || churnData.isEmpty()) {
+            System.out.println("No churn data available.");
+            return new HBox(); // Return empty if data is not available
+        }
+
+        // Control box for checkboxes
+        VBox controlBox = new VBox(10);
+        controlBox.setPadding(new Insets(10));
+        Label avgChurnLabel = new Label("Select Tiers:");
+        controlBox.getChildren().add(avgChurnLabel);
+
+        // Create the LineChart
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> churnChart = new LineChart<>(xAxis, yAxis);
         churnChart.setTitle("Average Churn Rate - " + interval);
-        churnChart.setMinWidth(1000);
+        churnChart.setMinWidth(600);
         HBox.setHgrow(churnChart, Priority.ALWAYS);
 
-        for (String tier : selectedTiers) {
-            if (!churnData.containsKey(tier)) continue;
-            XYChart.Series<String, Number> series = new XYChart.Series<>();
-            series.setName(tier);
-            for (Map.Entry<LocalDate, Double> entry : churnData.get(tier).entrySet()) {
-                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
-            }
-            churnChart.getData().add(series);
+        // Create checkboxes for each tier
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        for (String tier : allTiers) {
+            CheckBox cb = new CheckBox(tier);
+            cb.setSelected(true);  // Default to checked
+            checkBoxes.add(cb);
+            controlBox.getChildren().add(cb);
+
+            // Add a listener to update the chart when the checkbox is clicked
+            cb.setOnAction(e -> updateAvgChurnChart(churnChart, checkBoxes, churnData));
         }
 
-        return churnChart;
+        // Initial population of the chart
+        updateAvgChurnChart(churnChart, checkBoxes, churnData);
+
+        // Layout
+        HBox layout = new HBox(20, controlBox, churnChart);
+        layout.setPadding(new Insets(10));
+        layout.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(layout, Priority.ALWAYS);
+        layout.setMaxWidth(Double.MAX_VALUE);
+
+        return layout;
     }
+
+    // Helper function to update the chart
+    private void updateAvgChurnChart(LineChart<String, Number> churnChart, List<CheckBox> checkBoxes, Map<String, Map<LocalDate, Double>> churnData) {
+    	churnChart.getData().clear(); // Clear existing data
+        
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy");
+        
+        for (CheckBox cb : checkBoxes) {
+            if (cb.isSelected()) {
+                String tier = cb.getText();
+                if (churnData.containsKey(tier)) {
+                    XYChart.Series<String, Number> series = new XYChart.Series<>();
+                    if (churnData.containsKey(tier) && churnData.get(tier) != null) {
+                    for (Map.Entry<LocalDate, Double> entry : churnData.get(tier).entrySet()) {
+                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
+                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
+                    }
+                    churnChart.getData().add(series);
+                    }
+                }
+            }
+        }
+    }
+
 
     // 3. Weekly Churn Line Chart
-    public LineChart<String, Number> createWeeklyChurnChart(List<String> selectedTiers, boolean isMock) {
-        DatabaseServices db = new DatabaseServices();
-        Map<String, Map<LocalDate, Integer>> churnData = db.getWeeklyChurnData(selectedTiers, isMock);
+    public HBox createWeeklyChurnChart(List<String> allTiers, boolean isMock) {
+        DatabaseServices ds = new DatabaseServices();
+        Map<String, Map<LocalDate, Integer>> churnData = ds.getWeeklyChurnData(allTiers, isMock);
 
-        LineChart<String, Number> churnWeeklyChart = new LineChart<>(new CategoryAxis(), new NumberAxis());
-        churnWeeklyChart.setTitle("Weekly Churn - Last 15 Weeks");
-        churnWeeklyChart.setMinWidth(1000);
-        HBox.setHgrow(churnWeeklyChart, Priority.ALWAYS);
-
-        for (String tier : selectedTiers) {
-            if (!churnData.containsKey(tier)) continue;
-            XYChart.Series<String, Number> series = new XYChart.Series<>();
-            series.setName(tier);
-            for (Map.Entry<LocalDate, Integer> entry : churnData.get(tier).entrySet()) {
-                series.getData().add(new XYChart.Data<>(entry.getKey().toString(), entry.getValue()));
-            }
-            churnWeeklyChart.getData().add(series);
+        if (churnData == null || churnData.isEmpty()) {
+            System.out.println("No weekly churn data available.");
+            return new HBox(); // Return empty if data is not available
         }
 
-        return churnWeeklyChart;
+        // Control Panel
+        VBox controlBox = new VBox(10);
+        controlBox.setPadding(new Insets(10));
+        Label churnTierLabel = new Label("Select Tiers:");
+        controlBox.getChildren().add(churnTierLabel);
+
+        // Chart Setup
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> churnWeeklyChart = new LineChart<>(xAxis, yAxis);
+        churnWeeklyChart.setTitle("Weekly Churn - Last 15 Weeks");
+        churnWeeklyChart.setMinWidth(800);
+        HBox.setHgrow(churnWeeklyChart, Priority.ALWAYS);
+
+        // Checkboxes
+        List<CheckBox> churnCheckBoxes = new ArrayList<>();
+        for (String tier : allTiers) {
+            CheckBox cb = new CheckBox(tier);
+            cb.setSelected(true);  // Default to checked
+            churnCheckBoxes.add(cb);
+            controlBox.getChildren().add(cb);
+
+            // Add listener for dynamic chart updates
+            cb.setOnAction(e -> updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData));
+        }
+
+        if (churnData != null && !churnData.isEmpty()) {
+            updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData);
+        } else {
+            churnWeeklyChart.setTitle("Weekly Churn - No Data Available");
+        }
+
+        // Final Layout
+        HBox layout = new HBox(20, controlBox, churnWeeklyChart);
+        layout.setPadding(new Insets(10));
+        layout.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(layout, Priority.ALWAYS);
+        layout.setMaxWidth(Double.MAX_VALUE);
+
+        return layout;
     }
+
+    // Helper function to update the weekly churn chart
+    private void updateWeeklyChurnChart(LineChart<String, Number> chart, List<CheckBox> checkBoxes, Map<String, Map<LocalDate, Integer>> churnData) {
+        chart.getData().clear(); // Clear existing data
+        
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'W'w YYYY");
+        
+        for (CheckBox cb : checkBoxes) {
+            if (cb.isSelected()) {
+                String tier = cb.getText();
+                if (churnData.containsKey(tier)) {
+                    XYChart.Series<String, Number> series = new XYChart.Series<>();
+                    series.setName(tier);
+                    if (churnData.containsKey(tier) && churnData.get(tier) != null) {
+                    for (Map.Entry<LocalDate, Integer> entry : churnData.get(tier).entrySet()) {
+                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
+                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
+                    }
+                    chart.getData().add(series);
+                    }
+                }
+            }
+        }
+    }
+
 
     private String formatDateLabel(LocalDate date, String interval) {
         switch (interval.toLowerCase()) {
@@ -564,6 +794,7 @@ public class ChartCreator {
                 return date.toString(); // daily
         }
     }
+
 
 //    public HBox createWeeklyChurnChart(List<String> selectedTiers) {
 //        Map<String, Map<LocalDate, Integer>> churnData = new DatabaseServices().getWeeklyChurnData(selectedTiers, true);
@@ -592,6 +823,77 @@ public class ChartCreator {
 //        box.setPadding(new Insets(10));
 //        return box;
 //    }
+    
+    public HBox createGrossVsNetChart(List<EarningEntry> entries) {
+        // Group by year
+        Map<Integer, List<EarningEntry>> earningsByYear = entries.stream()
+            .collect(Collectors.groupingBy(EarningEntry::getYearValue));
+
+        List<String> yearOptions = earningsByYear.keySet().stream()
+            .sorted(Comparator.reverseOrder()) // Recent first
+            .map(String::valueOf)
+            .collect(Collectors.toList());
+        yearOptions.add(0, "All"); // Add "All" at the top
+
+        // ComboBox for year selection
+        ComboBox<String> yearSelector = new ComboBox<>();
+        yearSelector.getItems().addAll(yearOptions);
+        yearSelector.getSelectionModel().selectFirst(); // Default to "All"
+
+        // Chart and container
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
+        chart.setTitle("Total Revenue vs. Net Earnings");
+        chart.setLegendVisible(true);
+        chart.setAnimated(false);
+        chart.setCreateSymbols(true);
+        chart.setStyle("-fx-background-color: white;");
+
+        // Create chart data function
+        Runnable updateChart = () -> {
+            String selected = yearSelector.getValue();
+            List<EarningEntry> filtered = selected.equals("All")
+                ? entries
+                : earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+
+            XYChart.Series<String, Number> grossSeries = new XYChart.Series<>();
+            grossSeries.setName("Total Revenue");
+
+            XYChart.Series<String, Number> netSeries = new XYChart.Series<>();
+            netSeries.setName("Net Earnings");
+
+            filtered.stream()
+                .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber)) // You’ll need this method
+                .forEach(entry -> {
+                    String label = entry.getMonthValue().substring(0, 3); // "Jan", "Feb", etc.
+                    grossSeries.getData().add(new XYChart.Data<>(label, entry.getTotalValue()));
+                    netSeries.getData().add(new XYChart.Data<>(label, entry.getEarningsValue()));
+                });
+
+            chart.getData().setAll(grossSeries, netSeries);
+        };
+
+        // Initial chart build
+        updateChart.run();
+
+        // Listener to update when year changes
+        yearSelector.setOnAction(e -> updateChart.run());
+
+        VBox controlPanel = new VBox(10, new Label("Select Year:"), yearSelector);
+        controlPanel.setPadding(new Insets(10));
+        controlPanel.setAlignment(Pos.TOP_LEFT);
+
+        StackPane chartPane = new StackPane(chart);
+        HBox.setHgrow(chartPane, Priority.ALWAYS);
+
+        HBox container = new HBox(10, controlPanel, chartPane);
+        container.setPadding(new Insets(10));
+
+        return container;
+    }
+
+
 
 
 

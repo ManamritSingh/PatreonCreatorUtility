@@ -13,7 +13,6 @@ import com.patreon.frontend.models.PostEntry;
 import com.patreon.frontend.models.SurveyEntry;
 import com.patreon.frontend.models.UserEntry;
 import com.patreon.utils.DatabaseConnection;
-import com.patreon.utils.DatabaseUtils;
 
 import javafx.beans.property.SimpleDoubleProperty;
 import javafx.beans.property.SimpleIntegerProperty;
@@ -88,7 +87,7 @@ public class CSVParser {
             }
             earningTable.setItems(earningData);
             try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseUtils.saveEarningsToDatabase(conn, earningData);
+                DatabaseServices.saveEarningsToDatabase(conn, earningData);
                 System.out.println("Earnings data saved successfully.");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -148,7 +147,7 @@ public class CSVParser {
 
             postTable.setItems(postData);
             try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseUtils.savePostToDatabase(conn, postData);
+                DatabaseServices.savePostToDatabase(conn, postData);
                 System.out.println("Post data saved successfully.");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -204,7 +203,7 @@ public class CSVParser {
 
             surveyTable.setItems(surveyData);
             try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseUtils.saveSurveyToDatabase(conn, surveyData);
+                DatabaseServices.saveSurveyToDatabase(conn, surveyData);
                 System.out.println("Survey data saved successfully.");
             } catch (SQLException e) {
                 e.printStackTrace();
@@ -279,7 +278,7 @@ public class CSVParser {
             }
             userTable.setItems(userData);
             try (Connection conn = DatabaseConnection.getConnection()) {
-                DatabaseUtils.saveUserToDatabase(conn, userData);
+                DatabaseServices.saveUserToDatabase(conn, userData);
                 System.out.println("User data saved successfully.");
             } catch (SQLException e) {
                 e.printStackTrace();

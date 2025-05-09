@@ -13,12 +13,12 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
@@ -30,7 +30,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.*;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -71,12 +71,12 @@ public class FrontendDriver extends Application {
     private CSVParser cp = new CSVParser();
     private ChartCreator cc = new ChartCreator();
     private DatabaseServices ds = new DatabaseServices();
+    
 
 
     public static void main(String[] args) {
         launch(args);
     }
-
 
     @Override
     public void start(Stage primaryStage) {
@@ -89,21 +89,20 @@ public class FrontendDriver extends Application {
         window.setTitle("Patreon Creator Toolkit");
 
         // Layout setup
-        //toolBar.setOrientation(Orientation.VERTICAL);
         BorderPane layout = new BorderPane();
         layout.setTop(createMenuBar());
-        //layout.setLeft(toolBar);
         layout.setCenter(tabPane);
 
-        // Initialize tabs,tables, and toolbars
+        // Initialize tabs,tables, and charts
+        
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
-        buildCharts("Revenue");
-    	buildCharts("Retention");
-    	buildCharts("Demographics");
-    	buildCharts("Campaign Activity");
-        
+        buildTabContent("Revenue");
+    	buildTabContent("Retention");
+    	buildTabContent("Demographics");
+    	buildTabContent("Campaign Activity");
+    	
         
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
@@ -129,11 +128,11 @@ public class FrontendDriver extends Application {
 
         Menu fileMenu = new Menu("File");
         MenuItem menuOpen = new MenuItem("Open");
-        MenuItem menuSave = new MenuItem("Save");
         Menu viewMenu = new Menu("View");
         Menu charts = new Menu("Charts");
         Menu dataFiles = new Menu("Data File");
         MenuItem emailRewards = new MenuItem("Email Rewards");
+        MenuItem chatbot = new MenuItem("Chatbot");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
@@ -143,22 +142,6 @@ public class FrontendDriver extends Application {
         MenuItem viewEarningsFile = new MenuItem("Earnings File");
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
         MenuItem viewUserFile = new MenuItem("User File");
-
-        Menu devMenu = new Menu("API Data Options");
-
-        MenuItem generateReal = new MenuItem("Fetch Real Data");
-        MenuItem generateFake = new MenuItem("Generate Fake Data");
-        MenuItem generateYearlyFake = new MenuItem("Generate Yearly Fake Data");
-
-        generateReal.setOnAction(e -> sendGenerateRequest(false));
-        generateFake.setOnAction(e -> sendGenerateRequest(true));
-        generateYearlyFake.setOnAction(e -> sendGenerateYearlyRequest());
-
-        devMenu.getItems().add(generateYearlyFake);
-        devMenu.getItems().addAll(generateReal, generateFake);
-        menuBar.getMenus().add(devMenu);
-
-
 
         viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
         viewRetention.setOnAction(e -> openTab("Retention",retentionChartBox));
@@ -170,6 +153,7 @@ public class FrontendDriver extends Application {
         viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
+        chatbot.setOnAction(e -> openChatbotTab());
 
         //Open CSV Files
         menuOpen.setOnAction(e -> openFile());
@@ -177,7 +161,7 @@ public class FrontendDriver extends Application {
         viewMenu.getItems().addAll(charts,dataFiles);
         charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
         dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile, viewUserFile);
-        fileMenu.getItems().addAll(menuOpen, viewMenu, menuSave, emailRewards);
+        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards, chatbot);
         menuBar.getMenus().add(fileMenu);
 
         return menuBar;
@@ -320,119 +304,80 @@ public class FrontendDriver extends Application {
         tabPane.getSelectionModel().select(rewardsTab);
     }
 	
-	private void buildCharts(String section) {
-		
+	private void buildTabContent(String section) {
+		List<String> allTiers = ds.getAllTiers(true);
 		switch(section) {
 			case "Revenue":
 				HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
-                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings);
+				HBox netGrossChart = cc.createGrossVsNetChart(earningData);
+                revenueChartBox.getChildren().setAll(monthlyYearlyEarnings, new Separator(), netGrossChart);
 				break;
 			case "Demographics":
+				System.out.println("Entering Demographics");
 				HBox genderDist = cc.createGenderDistributionChart(userData);
                 HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
                 HBox educationPie = cc.createEducationPieChart(userData);
-                demographicChartBox.getChildren().setAll(genderDist, behavior, educationPie); 
+                demographicChartBox.getChildren().setAll(genderDist, new Separator(), behavior, new Separator(), educationPie); 
 				break;
 			case "Campaign Activity":
 				HBox postActivity = cc.createPostActivity(postData);
 				HBox surveyPie = cc.createSurveyPieChart(surveyData);
-                campaignChartBox.getChildren().setAll(postActivity, surveyPie);
+                campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
 				break;
-            case "Retention":
-                VBox container = new VBox(10);
-                container.setPadding(new Insets(10));
+			case "Retention":
+			    HBox dataGenBanner = new HBox(5);
+			    dataGenBanner.setPadding(new Insets(5));
+			    dataGenBanner.setStyle("-fx-background-color: #f0f0f0;");
+			    dataGenBanner.setAlignment(Pos.CENTER_LEFT);
+			    dataGenBanner.setMaxWidth(Double.MAX_VALUE);
+			    
+			    Region spacer = new Region();
+			    HBox.setHgrow(spacer, Priority.ALWAYS);
+			    
+			    Label header = new Label("Due to lack of real data, please use generated fake data for chart demo:");
+			    
+			    Button realDataButton = new Button("Show Real Data");
+			    Button fakeDataButton = new Button("Show Fake Data");
+			    
+			    // Track the data type (real or fake)
+			    AtomicBoolean isMock = new AtomicBoolean(true);  // Default to fake data
 
-                Label intervalLabel = new Label("Select Interval:");
-                ComboBox<String> intervalBox = new ComboBox<>();
-                intervalBox.getItems().addAll("daily", "weekly", "monthly");
-                intervalBox.setValue("monthly");
+			    // Chart containers
+			    HBox chart1 = new HBox();
+			    HBox chart2 = new HBox();
+			    HBox chart3 = new HBox();
 
-                Label tierLabel = new Label("Select Tiers:");
-                HBox tierCheckboxes = new HBox(10);
-                List<String> allTiers = ds.getAllTiers(true);
-                List<CheckBox> checkBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    checkBoxes.add(cb);
-                    tierCheckboxes.getChildren().add(cb);
-                }
+			    // Method to update all charts based on data type
+			    Runnable updateCharts = () -> {
+			        chart1.getChildren().setAll(cc.createRetentionLineChart("monthly", allTiers, isMock.get()));
+			        chart2.getChildren().setAll(cc.createAvgChurnChart("monthly", allTiers, isMock.get()));
+			        chart3.getChildren().setAll(cc.createWeeklyChurnChart(allTiers, isMock.get()));
+			    };
 
-                Button updateButton = new Button("Update Retention/Avg Churn Charts");
+			    // Button actions
+			    realDataButton.setOnAction(e -> {
+			        isMock.set(false);
+			        sendGenerateRequest(false); // Use real data
+			        updateCharts.run();
+			        realDataButton.setStyle("-fx-font-weight: bold;");
+			        fakeDataButton.setStyle("");
+			    });
 
-                Label churnTierLabel = new Label("Select Tiers for Weekly Churn:");
-                HBox churnTierCheckboxes = new HBox(10);
-                List<CheckBox> churnCheckBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    churnCheckBoxes.add(cb);
-                    churnTierCheckboxes.getChildren().add(cb);
-                }
-                Button churnUpdateButton = new Button("Update Weekly Churn Chart");
+			    fakeDataButton.setOnAction(e -> {
+			        isMock.set(true);
+			        sendGenerateYearlyRequest(); // Generate fake data
+			        updateCharts.run();
+			        fakeDataButton.setStyle("-fx-font-weight: bold;");
+			        realDataButton.setStyle("");
+			    });
 
-                // Default charts
-                HBox chart1 = new HBox(cc.createRetentionLineChart("monthly", allTiers, true));
-                HBox chart2 = new HBox(cc.createAvgChurnChart("monthly", allTiers, true));
-                HBox chart3 = new HBox(cc.createWeeklyChurnChart(allTiers, true));
+			    // Initialize with fake data
+			    updateCharts.run();
+			    fakeDataButton.setStyle("-fx-font-weight: bold;"); // Start with fake data highlighted
 
-                // Controls for Avg Churn Chart (#2)
-                Label avgChurnLabel = new Label("Select Tiers for Avg Churn:");
-                HBox avgChurnCheckboxes = new HBox(10);
-                List<CheckBox> avgChurnCheckBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    avgChurnCheckBoxes.add(cb);
-                    avgChurnCheckboxes.getChildren().add(cb);
-                }
-                Button avgChurnUpdateButton = new Button("Update Avg Churn Chart");
-
-                // Handler for Chart #2
-                avgChurnUpdateButton.setOnAction(e -> {
-                    List<String> selectedAvgChurnTiers = avgChurnCheckBoxes.stream()
-                            .filter(CheckBox::isSelected)
-                            .map(CheckBox::getText)
-                            .toList();
-                    chart2.getChildren().setAll(cc.createAvgChurnChart(intervalBox.getValue(), selectedAvgChurnTiers, true));
-                });
-
-                VBox chartsArea = new VBox(20,
-                        chart1,
-                        avgChurnLabel,
-                        avgChurnCheckboxes,
-                        avgChurnUpdateButton,
-                        chart2
-                );
-
-                VBox bottomCharts = new VBox(20, chart3);
-
-                // Button handlers
-                updateButton.setOnAction(e -> {
-                    String interval = intervalBox.getValue();
-                    List<String> selectedTiers = checkBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
-                    chart1.getChildren().setAll(cc.createRetentionLineChart(interval, selectedTiers, true));
-                });
-
-
-                churnUpdateButton.setOnAction(e -> {
-                    List<String> selectedChurnTiers = churnCheckBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
-                    chart3.getChildren().setAll(cc.createWeeklyChurnChart(selectedChurnTiers, true));
-                });
-
-                // Layout
-                container.getChildren().addAll(
-                        intervalLabel, intervalBox,
-                        tierLabel, tierCheckboxes,
-                        updateButton,
-                        chartsArea,
-                        churnTierLabel, churnTierCheckboxes,
-                        churnUpdateButton,
-                        bottomCharts
-                );
-
-                retentionChartBox.getChildren().setAll(container);
-                break;
+			    dataGenBanner.getChildren().addAll(header, spacer, realDataButton, fakeDataButton);
+			    retentionChartBox.getChildren().setAll(dataGenBanner, chart1, new Separator(), chart2, new Separator(), chart3);
+			    break;
         }
 	}
  
@@ -483,22 +428,22 @@ public class FrontendDriver extends Application {
                         switch (type) {
                             case "Earnings":
                                 cp.parseEarningsCSV(file, earningTable, earningData);
-                                buildCharts("Revenue");
+                                buildTabContent("Revenue");
                                 break;
 
                             case "Posts":
                                 cp.parsePostsCSV(file, postTable, postData);
-                                buildCharts("Campaign Activity");
+                                buildTabContent("Campaign Activity");
                                 break;
 
                             case "Surveys":
                                 cp.parseSurveysCSV(file, surveyTable, surveyData);
-                                buildCharts("Campaign Activity");
+                                buildTabContent("Campaign Activity");
                                 break;
 
                             case "User":
                                 cp.parseUserCSV(file, userTable, userData);
-                                buildCharts("Demographics");
+                                buildTabContent("Demographics");
                                 break;
                         }
                     });
@@ -510,6 +455,82 @@ public class FrontendDriver extends Application {
             System.out.println("Error opening file: " + ex.getMessage());}
     }
     
-    
+    private void openChatbotTab() {
+        // Check if the "Chatbot" tab already exists
+        for (Tab tab : tabPane.getTabs()) {
+            if (tab.getText().equals("Chatbot")) {
+                tabPane.getSelectionModel().select(tab);  // Switch to it
+                return;
+            }
+        }
 
+        // Create new VBox chatbot panel
+        VBox chatbotBox = new VBox(10);
+        chatbotBox.setStyle("-fx-background-color: lightgray; -fx-padding: 10;");
+        chatbotBox.setPrefWidth(400);
+
+        // Chat history area
+        ScrollPane scrollPane = new ScrollPane();
+        VBox chatHistory = new VBox(5);
+        chatHistory.setFillWidth(true);
+        scrollPane.setContent(chatHistory);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+
+        // User input field
+        TextField userInput = new TextField();
+        userInput.setPromptText("Type your message...");
+
+        // Send button
+        Button sendButton = new Button("Send");
+        sendButton.setOnAction(event -> {
+            String userMessage = userInput.getText();
+            if (!userMessage.trim().isEmpty()) {
+                chatHistory.getChildren().add(createUserMessage(userMessage));
+                chatHistory.getChildren().add(createChatbotResponse(
+                    "You are currently viewing the " + getSelectedTabName() + " tab."
+                ));
+                userInput.clear();
+                scrollPane.setVvalue(1.0);
+            }
+        });
+
+        // Add components to chatbot panel
+        chatbotBox.getChildren().addAll(scrollPane, userInput, sendButton);
+
+        // Create a new tab named "Chatbot" and add the panel
+        Tab chatbotTab = new Tab("Chatbot");
+        chatbotTab.setContent(chatbotBox);
+        tabPane.getTabs().add(chatbotTab);
+        tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
+    }
+
+
+    // Helper method to create the user message bubble
+    private HBox createUserMessage(String message) {
+        Label userMessage = new Label(message);
+        userMessage.setStyle("-fx-background-color: #5dadec; -fx-text-fill: white; -fx-padding: 10; -fx-background-radius: 20px;");
+        userMessage.setMaxWidth(200);
+        userMessage.setWrapText(true);
+        HBox userBubble = new HBox(userMessage);
+        userBubble.setAlignment(Pos.BASELINE_RIGHT);
+        return userBubble;
+    }
+
+    // Helper method to create the chatbot response bubble
+    private HBox createChatbotResponse(String response) {
+        Label chatbotMessage = new Label(response);
+        chatbotMessage.setStyle("-fx-background-color: #f0f0f0; -fx-text-fill: black; -fx-padding: 10; -fx-background-radius: 20px;");
+        chatbotMessage.setMaxWidth(200);
+        chatbotMessage.setWrapText(true);
+        HBox chatbotBubble = new HBox(chatbotMessage);
+        chatbotBubble.setAlignment(Pos.BASELINE_LEFT);
+        return chatbotBubble;
+    }
+
+    // Helper method to get the name of the selected tab
+    private String getSelectedTabName() {
+        // In a real application, you'd check which tab is selected
+        return "Revenue";  // Return a dummy value for now
+    }
 }

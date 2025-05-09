@@ -301,7 +301,7 @@ public class DatabaseServices {
 
  } catch (SQLException e) {
      if (e.getMessage().contains("no such table")) {
-         System.out.println("Member table does not exist. Creating it...");
+         System.out.println("User table does not exist. Creating it...");
          if (conn != null) {
              createUserTable(conn);
          }
@@ -345,7 +345,7 @@ public class DatabaseServices {
     }
     
     public void loadRewardsFromDB(TableView<EmailReward> rewardsTable, ObservableList<EmailReward> rewardList) {
-    	String query = "SELECT id, message, subject, trigger, recipients FROM rewards";
+    	String query = "SELECT id, message, subject, trigger, recipients, status FROM rewards";
 
     	Connection conn = null;
 
@@ -361,9 +361,10 @@ public class DatabaseServices {
     					rs.getString("message"),
     					rs.getString("subject"),
     					rs.getString("trigger"),
-    					rs.getString("recipients")
+    					rs.getString("recipients"),
+    					rs.getString("status")
+    					
     			);
-    			
 
     			rewardList.add(entry);
     		}
@@ -373,6 +374,7 @@ public class DatabaseServices {
     		rs.close();
     		stmt.close();
     		conn.close();
+    		
 
     	} catch (SQLException e) {
     		if (e.getMessage().contains("no such table")) {
@@ -393,7 +395,8 @@ public class DatabaseServices {
                     message TEXT, 
                     subject TEXT, 
                     trigger TEXT, 
-                    recipients TEXT
+                    recipients TEXT,
+                    status TEXT
                 )
                 """;
 
@@ -404,69 +407,328 @@ public class DatabaseServices {
                 e.printStackTrace();
             }
     }
+    
+    public static void saveEarningsToDatabase(Connection connection, List<EarningEntry> earningData) throws SQLException {
+        String deleteSQL = "DELETE FROM earnings";
+        String insertSQL = "INSERT INTO earnings (" +
+                "month, year, total, webMembershipCharges, iOSMembershipCharges, webGiftCharges, iOSGiftCharges, " +
+                "earnings, processingFee, patreonFee, iOSFee, merchShipping, declines, " +
+                "percentMembershipEarnings, percentMembershipProcessingFees, percentMembershipPatreonFees, " +
+                "percentGiftEarnings, percentGiftProcessingFees, percentGiftPatreonFees, " +
+                "currencyConversionFee, currencyConversionFeePercent, currency" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-	public Map<String, Map<LocalDate, Integer>> getTierRetentionData(String interval, boolean isMock) {
-		Map<String, Map<LocalDate, Integer>> retentionData = new HashMap<>();
-		String timeFormat;
+        PreparedStatement deleteStmt = null;
+        PreparedStatement insertStmt = null;
 
-		switch (interval.toLowerCase()) {
-			case "weekly":
-				timeFormat = "%Y-%W"; // Week number format
-				break;
-			case "monthly":
-				timeFormat = "%Y-%m"; // Month format
-				break;
-			case "daily":
-			default:
-				timeFormat = "%Y-%m-%d"; // Day format
-				break;
-		}
+        try {
+            connection.setAutoCommit(false); // Start transaction
 
-		String query = """
-        SELECT strftime(?, timestamp) as period,
-               tier_name,
-               SUM(patron_count) as patrons
-        FROM tier_snap
-        WHERE is_mock = ?
-        GROUP BY tier_name, period
-        ORDER BY tier_name, period
-    """;
+            // Step 1: Clear table
+            deleteStmt = connection.prepareStatement(deleteSQL);
+            deleteStmt.executeUpdate();
 
-		try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
-			pstmt.setString(1, timeFormat);
-			pstmt.setBoolean(2, isMock);
+            // Step 2: Insert new data
+            insertStmt = connection.prepareStatement(insertSQL);
+            for (EarningEntry entry : earningData) {
+                insertStmt.setString(1, entry.getMonth().get());
+                insertStmt.setInt(2, entry.getYear().get());
+                insertStmt.setDouble(3, entry.getTotal().get());
+                insertStmt.setDouble(4, entry.getWebMembershipCharges().get());
+                insertStmt.setDouble(5, entry.getiOSMembershipCharges().get());
+                insertStmt.setDouble(6, entry.getWebGiftCharges().get());
+                insertStmt.setDouble(7, entry.getiOSGiftCharges().get());
+                insertStmt.setDouble(8, entry.getEarnings().get());
+                insertStmt.setDouble(9, entry.getProcessingFee().get());
+                insertStmt.setDouble(10, entry.getPatreonFee().get());
+                insertStmt.setDouble(11, entry.getiOSFee().get());
+                insertStmt.setDouble(12, entry.getMerchShipping().get());
+                insertStmt.setDouble(13, entry.getDeclines().get());
+                insertStmt.setDouble(14, entry.getPercentMembershipEarnings().get());
+                insertStmt.setDouble(15, entry.getPercentMembershipProcessingFees().get());
+                insertStmt.setDouble(16, entry.getPercentMembershipPatreonFees().get());
+                insertStmt.setDouble(17, entry.getPercentGiftEarnings().get());
+                insertStmt.setDouble(18, entry.getPercentGiftProcessingFees().get());
+                insertStmt.setDouble(19, entry.getPercentGiftPatreonFees().get());
+                insertStmt.setDouble(20, entry.getCurrencyConversionFee().get());
+                insertStmt.setDouble(21, entry.getCurrencyConversionFeePercent().get());
+                insertStmt.setString(22, entry.getCurrency().get());
 
-			ResultSet rs = pstmt.executeQuery();
-			while (rs.next()) {
-				String tier = rs.getString("tier_name");
-				String period = rs.getString("period");
-				LocalDate periodDate;
+                insertStmt.addBatch();
+            }
 
-				try {
-					// For daily and monthly: parse directly (e.g., 2024-05 or 2024-05-01)
-					periodDate = LocalDate.parse(period + (interval.equals("monthly") ? "-01" : ""));
-				} catch (DateTimeParseException e) {
-					// For weekly: convert year + week to LocalDate (start of that week)
-					String[] parts = period.split("-");
-					int year = Integer.parseInt(parts[0]);
-					int week = Integer.parseInt(parts[1]);
+            insertStmt.executeBatch();
+            connection.commit(); // Finish transaction
 
-					periodDate = LocalDate.ofYearDay(year, 1)
-							.with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, Math.max(1, week))
-							.with(java.time.DayOfWeek.MONDAY); // or SUNDAY if needed
-				}
+        } catch (SQLException e) {
+            if (connection != null) {
+                connection.rollback(); // Roll back on error
+            }
+            throw e;
+        } finally {
+            if (deleteStmt != null) deleteStmt.close();
+            if (insertStmt != null) insertStmt.close();
+            connection.setAutoCommit(true);
+        }
+    }
+    
+    public static void savePostToDatabase(Connection connection, List<PostEntry> postData) throws SQLException {
+        String deleteSQL = "DELETE FROM posts";
+        String insertSQL = "INSERT INTO posts (" +
+                "title, totalImpressions, likes, comments, newFreeMembers, newPaidMembers, publishedDateTime, link" +
+                ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-				retentionData
-						.computeIfAbsent(tier, k -> new TreeMap<>())
-						.put(periodDate, rs.getInt("patrons"));
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
+        PreparedStatement deleteStmt = null;
+        PreparedStatement insertStmt = null;
 
-		return retentionData;
-	}
+        try {
+            connection.setAutoCommit(false); // Start transaction
 
+            // Step 1: Clear table
+            deleteStmt = connection.prepareStatement(deleteSQL);
+            deleteStmt.executeUpdate();
+
+            // Step 2: Insert new data
+            insertStmt = connection.prepareStatement(insertSQL);
+            for (PostEntry entry : postData) {
+                insertStmt.setString(1, entry.getTitle().get());
+                insertStmt.setInt(2, entry.getTotalImpressions().get());
+                insertStmt.setInt(3, entry.getLikes().get());
+                insertStmt.setInt(4, entry.getComments().get());
+                insertStmt.setInt(5, entry.getNewFreeMembers().get());
+                insertStmt.setInt(6, entry.getNewPaidMembers().get());
+                insertStmt.setString(7, entry.getPublishedDateTime().get());
+                insertStmt.setString(8, entry.getLink().get());
+
+                insertStmt.addBatch();
+            }
+
+            insertStmt.executeBatch();
+            connection.commit(); // Finish transaction
+
+        } catch (SQLException e) {
+            if (connection != null) {
+                connection.rollback(); // Roll back on error
+            }
+            throw e;
+        } finally {
+            if (deleteStmt != null) deleteStmt.close();
+            if (insertStmt != null) insertStmt.close();
+            connection.setAutoCommit(true);
+        }
+    }
+    
+    public static void saveSurveyToDatabase(Connection connection, List<SurveyEntry> surveyData) throws SQLException{
+    	String deleteSQL = "DELETE FROM surveys";
+        String insertSQL = "INSERT INTO surveys (" +
+                "submittedDateTime, name, email, tier, survey, comments " +
+                ") VALUES (?, ?, ?, ?, ?, ?)";
+
+        PreparedStatement deleteStmt = null;
+        PreparedStatement insertStmt = null;
+
+        try {
+            connection.setAutoCommit(false); // Start transaction
+
+            // Step 1: Clear table
+            deleteStmt = connection.prepareStatement(deleteSQL);
+            deleteStmt.executeUpdate();
+
+            // Step 2: Insert new data
+            insertStmt = connection.prepareStatement(insertSQL);
+            for (SurveyEntry entry : surveyData) {
+                insertStmt.setString(1, entry.getSubmittedDateTime().get());
+                insertStmt.setString(2, entry.getName().get());
+                insertStmt.setString(3, entry.getEmail().get());
+                insertStmt.setString(4, entry.getTier().get());
+                insertStmt.setString(5, entry.getSurvey().get());
+                insertStmt.setString(6, entry.getComments().get());
+
+                insertStmt.addBatch();
+            }
+
+            insertStmt.executeBatch();
+            connection.commit(); // Finish transaction
+
+        } catch (SQLException e) {
+            if (connection != null) {
+                connection.rollback(); // Roll back on error
+            }
+            throw e;
+        } finally {
+            if (deleteStmt != null) deleteStmt.close();
+            if (insertStmt != null) insertStmt.close();
+            connection.setAutoCommit(true);
+        }
+    }
+    
+    public static void saveUserToDatabase(Connection connection, List<UserEntry> userData) throws SQLException{
+    	String deleteSQL = "DELETE FROM usercsv";
+        String insertSQL = "INSERT INTO usercsv (" +
+                "id, address_line1, address_line2, address_name, age_range, city,"
+                + "country, education_level, email, first_name, gender, income_range, is_active,"
+                + "last_name, pledge_amount_cents, raffle_eligible, state, tier_id, zip_code"
+                + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        PreparedStatement deleteStmt = null;
+        PreparedStatement insertStmt = null;
+
+        try {
+            connection.setAutoCommit(false); // Start transaction
+
+            // Step 1: Clear table
+            deleteStmt = connection.prepareStatement(deleteSQL);
+            deleteStmt.executeUpdate();
+
+            // Step 2: Insert new data
+            insertStmt = connection.prepareStatement(insertSQL);
+            for (UserEntry entry : userData) {
+                insertStmt.setString(1, entry.getUserID().get());
+                insertStmt.setString(2, entry.getAddressLine1().get());
+                insertStmt.setString(3, entry.getAddressLine2().get());
+                insertStmt.setString(4, entry.getAddressName().get());
+                insertStmt.setString(5, entry.getAgeRange().get());
+                insertStmt.setString(6, entry.getCity().get());
+                insertStmt.setString(7, entry.getCountry().get());
+                insertStmt.setString(8, entry.getEducationLevel().get());
+                insertStmt.setString(9, entry.getEmail().get());
+                insertStmt.setString(10, entry.getFirstName().get());
+                insertStmt.setString(11, entry.getGender().get());
+                insertStmt.setString(12, entry.getIncomeRange().get());
+                insertStmt.setString(13, entry.getActive().get());
+                insertStmt.setString(14, entry.getLastName().get());
+                insertStmt.setString(15, entry.getPledge().get());
+                insertStmt.setString(16, entry.getRaffleEligible().get());
+                insertStmt.setString(17, entry.getState().get());
+                insertStmt.setString(18, entry.getTier().get());
+                insertStmt.setString(19, entry.getZipCode().get());
+
+                insertStmt.addBatch();
+            }
+
+            insertStmt.executeBatch();
+            connection.commit(); // Finish transaction
+
+        } catch (SQLException e) {
+            if (connection != null) {
+                connection.rollback(); // Roll back on error
+            }
+            throw e;
+        } finally {
+            if (deleteStmt != null) deleteStmt.close();
+            if (insertStmt != null) insertStmt.close();
+            connection.setAutoCommit(true);
+        }
+    }
+    
+    public static void saveRewardToDatabase(Connection connection, EmailReward reward) {
+    	String sql = "INSERT INTO rewards (message, subject, trigger, recipients, status) VALUES (?, ?, ?, ?, ?)";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, reward.getMessage().get());
+            stmt.setString(2, reward.getSubject().get());
+            stmt.setString(3, reward.getTriggerOpt().get());
+            stmt.setString(4, String.join(",", reward.getRecepients())); // Serialize list to CSV
+            stmt.setString(5, reward.getStatus().get());
+            
+            stmt.executeUpdate();
+            System.out.println("Reward saved to database.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+    
+    public static void deleteRewardFromDatabase(Connection connection, EmailReward reward) {
+    	String sql = "DELETE FROM rewards WHERE message = ? AND subject = ? AND trigger = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, reward.getMessage().get());
+            stmt.setString(2, reward.getSubject().get());
+            stmt.setString(3, reward.getTriggerOpt().get());
+            stmt.setString(4, reward.getStatus().get());
+
+            int rowsDeleted = stmt.executeUpdate();
+            System.out.println(rowsDeleted + " reward(s) deleted from database.");
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public Map<String, Map<LocalDate, Integer>> getTierRetentionData(String interval, boolean isMock) {
+        Map<String, Map<LocalDate, Integer>> retentionData = new HashMap<>();
+        String timeFormat;
+
+        switch (interval.toLowerCase()) {
+            case "weekly":
+                timeFormat = "%Y-%W"; // ISO week format
+                break;
+            case "monthly":
+                timeFormat = "%Y-%m"; // Month format
+                break;
+            case "yearly":
+                timeFormat = "%Y"; // Year format
+                break;
+            default:
+                timeFormat = "%Y-%m-%d"; // Default to daily
+                break;
+        }
+
+        String query = """
+            SELECT strftime(?, timestamp) as period,
+                   tier_name,
+                   SUM(patron_count) as patrons
+            FROM tier_snap
+            WHERE is_mock = ?
+            GROUP BY tier_name, period
+            ORDER BY tier_name, period
+        """;
+
+        try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, timeFormat);
+            pstmt.setBoolean(2, isMock);
+
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                String tier = rs.getString("tier_name");
+                String period = rs.getString("period");
+                LocalDate periodDate;
+
+                try {
+                    switch (interval.toLowerCase()) {
+                        case "monthly":
+                            periodDate = LocalDate.parse(period + "-01");
+                            break;
+                        case "yearly":
+                            periodDate = LocalDate.of(Integer.parseInt(period), 1, 1);
+                            break;
+                        case "weekly": {
+                            String[] parts = period.split("-");
+                            int year = Integer.parseInt(parts[0]);
+                            int week = Integer.parseInt(parts[1]);
+                            periodDate = LocalDate.ofYearDay(year, 1)
+                                    .with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, week)
+                                    .with(java.time.DayOfWeek.MONDAY); // Start of week
+                            break;
+                        }
+                        default: // daily
+                            periodDate = LocalDate.parse(period);
+                            break;
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    continue;
+                }
+
+                retentionData
+                        .computeIfAbsent(tier, k -> new TreeMap<>())
+                        .put(periodDate, rs.getInt("patrons"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return retentionData;
+    }
 
 
 	public List<String> getAllTiers(boolean isMock) {
@@ -495,144 +757,146 @@ public class DatabaseServices {
 			return null;
 		}
 	}
+	
 	public Map<String, Map<LocalDate, Double>> getAvgChurnRates(String interval, boolean isMock) {
-		Map<String, Map<LocalDate, Double>> churnData = new HashMap<>();
-		String timeFormat;
+	    Map<String, Map<LocalDate, Double>> churnData = new HashMap<>();
+	    String timeFormat;
 
-		switch (interval.toLowerCase()) {
-			case "weekly":  timeFormat = "%Y-%W"; break;
-			case "monthly": timeFormat = "%Y-%m"; break;
-			default:        timeFormat = "%Y-%m-%d"; break;
-		}
+	    switch (interval.toLowerCase()) {
+	        case "weekly":  timeFormat = "%Y-%W"; break;
+	        case "monthly": timeFormat = "%Y-%m"; break;
+	        default:        timeFormat = "%Y-%m-%d"; break;
+	    }
 
-		String query = """
-        SELECT 
-            t1.tier_name,
-            strftime(?, t1.timestamp) AS period,
-            t1.patron_count - t2.patron_count AS churn
-        FROM tier_snap t1
-        JOIN tier_snap t2
-            ON t1.tier_name = t2.tier_name
-           AND date(t2.timestamp) = date(t1.timestamp, '-1 day')
-        WHERE t1.is_mock = ?
-        ORDER BY t1.tier_name, t1.timestamp
-    """;
+	    String query = """
+	    SELECT 
+	        t1.tier_name,
+	        strftime('%Y-%m', t1.timestamp) AS period,  -- for monthly
+	        t1.patron_count - t2.patron_count AS churn
+	    FROM tier_snap t1
+	    JOIN tier_snap t2
+	        ON t1.tier_name = t2.tier_name
+	        AND date(t2.timestamp) = date(t1.timestamp, '-1 day')
+	    WHERE t1.is_mock = ?
+	    ORDER BY t1.tier_name, t1.timestamp
+	    """;
 
-		try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
-			pstmt.setString(1, timeFormat);
-			pstmt.setBoolean(2, isMock);
-			ResultSet rs = pstmt.executeQuery();
+	    try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+	        pstmt.setBoolean(1, isMock);
+	        ResultSet rs = pstmt.executeQuery();
 
-			while (rs.next()) {
-				String tier = rs.getString("tier_name");
-				String period = rs.getString("period");
-				int churn = rs.getInt("churn");
+	        while (rs.next()) {
+	            String tier = rs.getString("tier_name");
+	            String period = rs.getString("period");
+	            int churn = rs.getInt("churn");
 
-				LocalDate periodDate;
-				try {
-					if ("weekly".equals(interval)) {
-						String[] parts = period.split("-");
-						int year = Integer.parseInt(parts[0]);
-						int week = Integer.parseInt(parts[1]);
-						if (week == 0) continue;
-						periodDate = LocalDate.parse(year + "-W" + week + "-1", DateTimeFormatter.ofPattern("yyyy-'W'ww-e"));
-					} else if ("monthly".equals(interval)) {
-						periodDate = LocalDate.parse(period + "-01");
-					} else {
-						periodDate = LocalDate.parse(period);
-					}
-				} catch (Exception e) {
-					continue;
-				}
+	            LocalDate periodDate;
+	            try {
+	                //sSystem.out.println("Parsing period: " + period);  // Debugging line
+	                if ("weekly".equals(interval)) {
+	                    String[] parts = period.split("-");
+	                    int year = Integer.parseInt(parts[0]);
+	                    int week = Integer.parseInt(parts[1]);
+	                    if (week == 0) continue;
+	                    periodDate = LocalDate.parse(year + "-W" + week + "-1", DateTimeFormatter.ofPattern("yyyy-'W'ww-e"));
+	                } else if ("monthly".equals(interval)) {
+	                    periodDate = LocalDate.parse(period + "-01");
+	                } else {
+	                    periodDate = LocalDate.parse(period);
+	                }
+	            } catch (Exception e) {
+	                e.printStackTrace();  // Log the error to understand the issue
+	                continue;
+	            }
 
-				churnData.computeIfAbsent(tier, k -> new TreeMap<>()).put(periodDate, (double) churn);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-
-		return churnData;
+	            churnData.computeIfAbsent(tier, k -> new TreeMap<>()).put(periodDate, (double) churn);
+	        }
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	    }
+	    System.out.println("Finished GetAvgChurnRates");
+	    return churnData;
 	}
-
-
+	
 	public Map<String, Map<LocalDate, Integer>> getWeeklyChurnData(List<String> selectedTiers, boolean isMock) {
-		Map<String, Map<LocalDate, Integer>> churnData = new HashMap<>();
+	    Map<String, Map<LocalDate, Integer>> churnData = new HashMap<>();
 
-		String query = """
-        SELECT 
-            tier_name,
-            strftime('%Y-%W', timestamp) AS week,
-            SUM(patron_count) AS patrons
-        FROM tier_snap
-        WHERE is_mock = ?
-        GROUP BY tier_name, week
-        ORDER BY tier_name, week
-    """;
+	    String query = """
+	    SELECT 
+	        tier_name,
+	        strftime('%Y-%W', timestamp) AS week,
+	        SUM(patron_count) AS patrons
+	    FROM tier_snap
+	    WHERE is_mock = ?
+	    GROUP BY tier_name, week
+	    ORDER BY tier_name, week
+	    """;
 
-		try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
-			pstmt.setBoolean(1, isMock);
-			ResultSet rs = pstmt.executeQuery();
+	    try (Connection conn = connect(); PreparedStatement pstmt = conn.prepareStatement(query)) {
+	        pstmt.setBoolean(1, isMock);
+	        ResultSet rs = pstmt.executeQuery();
 
-			Map<String, Map<String, Integer>> raw = new HashMap<>();
+	        Map<String, Map<String, Integer>> raw = new HashMap<>();
 
-			while (rs.next()) {
-				String tier = rs.getString("tier_name");
-				String week = rs.getString("week");
-				int count = rs.getInt("patrons");
+	        while (rs.next()) {
+	            String tier = rs.getString("tier_name");
+	            String week = rs.getString("week");
+	            int count = rs.getInt("patrons");
 
-				if (!selectedTiers.contains(tier)) continue;
+	            if (!selectedTiers.contains(tier)) continue;
 
-				raw.computeIfAbsent(tier, k -> new LinkedHashMap<>()).put(week, count);
-			}
+	            raw.computeIfAbsent(tier, k -> new LinkedHashMap<>()).put(week, count);
+	        }
 
-			for (String tier : raw.keySet()) {
-				Map<String, Integer> weekMap = raw.get(tier);
-				Map<LocalDate, Integer> churn = new LinkedHashMap<>();
-				String prevWeek = null;
+	        for (String tier : raw.keySet()) {
+	            Map<String, Integer> weekMap = raw.get(tier);
+	            Map<LocalDate, Integer> churn = new LinkedHashMap<>();
+	            String prevWeek = null;
 
-				for (String currentWeek : weekMap.keySet()) {
-					if (prevWeek != null) {
-						int diff = weekMap.get(currentWeek) - weekMap.get(prevWeek);
+	            for (String currentWeek : weekMap.keySet()) {
+	                if (prevWeek != null) {
+	                    int diff = weekMap.get(currentWeek) - weekMap.get(prevWeek);
 
-						try {
-							String[] parts = currentWeek.split("-");
-							int year = Integer.parseInt(parts[0]);
-							int week = Integer.parseInt(parts[1]);
-							LocalDate label = LocalDate.ofYearDay(year, 1)
-									.with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, Math.max(1, week))
-									.with(java.time.DayOfWeek.MONDAY);
-							churn.put(label, diff);
-						} catch (Exception e) {
-							e.printStackTrace();
-						}
-					}
-					prevWeek = currentWeek;
-				}
+	                    try {
+	                        //System.out.println("Prev week: " + prevWeek + ", Current week: " + currentWeek + ", Churn: " + diff);  // Debugging line
+	                        String[] parts = currentWeek.split("-");
+	                        int year = Integer.parseInt(parts[0]);
+	                        int week = Integer.parseInt(parts[1]);
+	                        LocalDate label = LocalDate.ofYearDay(year, 1)
+	                                .with(java.time.temporal.IsoFields.WEEK_OF_WEEK_BASED_YEAR, Math.max(1, week))
+	                                .with(java.time.DayOfWeek.MONDAY);
+	                        churn.put(label, diff);
+	                    } catch (Exception e) {
+	                        e.printStackTrace();  // Log the error to understand the issue
+	                    }
+	                }
+	                prevWeek = currentWeek;
+	            }
 
-				churnData.put(tier, churn);
-			}
+	            churnData.put(tier, churn);
+	        }
 
-			// Trim to last 15 weeks
-			for (String tier : churnData.keySet()) {
-				Map<LocalDate, Integer> full = churnData.get(tier);
-				List<LocalDate> keys = new ArrayList<>(full.keySet());
-				if (keys.size() > 15) {
-					keys = keys.subList(keys.size() - 15, keys.size());
-				}
+	        // Trim to last 15 weeks
+	        for (String tier : churnData.keySet()) {
+	            Map<LocalDate, Integer> full = churnData.get(tier);
+	            List<LocalDate> keys = new ArrayList<>(full.keySet());
+	            if (keys.size() > 15) {
+	                keys = keys.subList(keys.size() - 15, keys.size());
+	            }
 
-				Map<LocalDate, Integer> trimmed = new LinkedHashMap<>();
-				for (LocalDate k : keys) {
-					trimmed.put(k, full.get(k));
-				}
-				churnData.put(tier, trimmed);
-			}
+	            Map<LocalDate, Integer> trimmed = new LinkedHashMap<>();
+	            for (LocalDate k : keys) {
+	                trimmed.put(k, full.get(k));
+	            }
+	            churnData.put(tier, trimmed);
+	        }
 
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-
-		return churnData;
+	    } catch (SQLException e) {
+	        e.printStackTrace();
+	    }
+	    System.out.println("Finished GetWeeklyChurnRates");
+	    return churnData;
 	}
 
-
+	
 }
