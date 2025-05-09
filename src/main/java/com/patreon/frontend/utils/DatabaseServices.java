@@ -275,7 +275,7 @@ public class DatabaseServices {
     					rs.getString("email"),
     					rs.getString("is_active"),	
     					rs.getString("tier_id"),
-    					rs.getString("pledge_amount_cents"),
+    					rs.getString("pledge"),
     					rs.getString("address_name"),	
     					rs.getString("address_line1"),
     					rs.getString("address_line2"),
