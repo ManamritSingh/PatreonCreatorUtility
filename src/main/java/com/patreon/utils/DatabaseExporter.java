@@ -18,6 +18,6 @@ public class DatabaseExporter {
 
     public void export(List<TierSnapshot> snapshots) {
         repository.saveAll(snapshots);
-        System.out.println("✅ TierSnapshots saved to database.");
+        System.out.println("TierSnapshots saved to database.");
     }
 }

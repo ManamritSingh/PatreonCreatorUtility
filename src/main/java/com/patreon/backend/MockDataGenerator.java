@@ -54,7 +54,7 @@ public class MockDataGenerator {
 
 
         repo.saveAll(snapshots);
-        System.out.println("✅ Mock data generated for " + label + " on " + date);
+        System.out.println("Mock data generated for " + label + " on " + date);
     }
 
     public void generateOneYearOfFakeData(List<Tier> tiers) {
@@ -75,7 +75,7 @@ public class MockDataGenerator {
                 generateFakeDataForDate(date, tiers, "Yearly Seeder");
             }
         }
-        System.out.println("✅ 360 days of mock data seeded to database!");
+        System.out.println("360 days of mock data seeded to database!");
     }
 
 

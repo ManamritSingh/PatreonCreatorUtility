@@ -31,7 +31,7 @@ public class PatreonClient {
         if (response.statusCode() == 200) {
             return response.body();
         } else {
-            System.err.println("❌ Request failed: " + response.statusCode());
+            System.err.println("Request failed: " + response.statusCode());
             System.err.println("Response: " + response.body());
             return null;
         }
