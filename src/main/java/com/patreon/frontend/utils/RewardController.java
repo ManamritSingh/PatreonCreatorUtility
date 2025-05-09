@@ -46,6 +46,7 @@ import javafx.scene.Node;
 public class RewardController {
 
 	private DatabaseServices ds = new DatabaseServices();
+	
 	@Autowired
     private RewardTriggerService rewardTriggerService;
 

@@ -267,8 +267,6 @@ public class CSVParser {
 	        showAlert("Parsing Error", "There was an error while parsing the CSV.");
 	    }
 	}
-
-
 	
 	public void parseUserCSV(File file, TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
     	userData.clear();
