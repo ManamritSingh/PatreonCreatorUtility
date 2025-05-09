@@ -1,7 +1,7 @@
 package com.patreon.backend.chatbot;
 
 public class ChatMessage {
-
+	
     private Long id;
     private String sessionId;
     private String role;

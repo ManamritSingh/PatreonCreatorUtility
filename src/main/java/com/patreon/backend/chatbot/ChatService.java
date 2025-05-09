@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
 import okhttp3.*;
+
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.stereotype.Service;
 
@@ -25,19 +27,19 @@ public class ChatService {
     private final GoogleSearchService googleSearchService;
     private final OkHttpClient client = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
-    private final String apiKey;
+    @Value("${openai.api-key}")
+    private String apiKey;
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
     private final DataSource dataSource;
 
     public ChatService(JdbcConversationRepository repository, GoogleSearchService googleSearchService, DataSource dataSource) {
         this.conversationRepository = repository;
         this.googleSearchService = googleSearchService;
-        this.apiKey = Dotenv.load().get("OPENAI_API_KEY");
         this.dataSource = dataSource;
     }
 
-    @EventListener(ApplicationReadyEvent.class)
-    public void ensureConversationTableExists() {
+
+    /*public void ensureConversationTableExists() {
         new Thread(() -> {
             try {
                 Thread.sleep(1000); // ⏳ Wait to ensure DB isn't locked by Spring/Hibernate
@@ -91,7 +93,7 @@ public class ChatService {
                 Thread.currentThread().interrupt();
             }
         }).start();
-    }
+    }*/
 
 
 
