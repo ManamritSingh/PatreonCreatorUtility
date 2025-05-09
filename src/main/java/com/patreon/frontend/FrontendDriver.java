@@ -465,76 +465,117 @@ public class FrontendDriver extends Application {
     }
     
     private void openChatbotTab() {
-        // Check if the "Chatbot" tab already exists
         for (Tab tab : tabPane.getTabs()) {
             if (tab.getText().equals("Chatbot")) {
-                tabPane.getSelectionModel().select(tab);  // Switch to it
+                tabPane.getSelectionModel().select(tab);
                 return;
             }
         }
 
-        // Create new VBox chatbot panel
+        String sessionId = UUID.randomUUID().toString();
         VBox chatbotBox = new VBox(10);
         chatbotBox.setStyle("-fx-background-color: lightgray; -fx-padding: 10;");
         chatbotBox.setPrefWidth(400);
 
-        // Chat history area (fills the remaining space)
+        // Chat history scroll area
         ScrollPane scrollPane = new ScrollPane();
         VBox chatHistory = new VBox(5);
         chatHistory.setFillWidth(true);
         scrollPane.setContent(chatHistory);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
-        VBox.setVgrow(scrollPane, Priority.ALWAYS);  // Make scrollPane take up remaining space
+        VBox.setVgrow(scrollPane, Priority.ALWAYS); // expand to fill available space
 
-        // User input field
+        // User input + send
         TextField userInput = new TextField();
         userInput.setPromptText("Type your message...");
 
-        // Send button
         Button sendButton = new Button("Send");
-        sendButton.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
+        sendButton.setDefaultButton(true); // Triggers on Enter
 
-        // Activate send button on "Enter"
-        userInput.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
+        sendButton.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane, sessionId));
+        userInput.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane, sessionId)); // Enter key
 
-        // Create an HBox to arrange input and button side by side
+        // Input row (grow text, button on right)
         HBox inputBox = new HBox(10);
-        inputBox.setStyle("-fx-padding: 5;");
+        inputBox.setStyle("-fx-padding: 10;");
         inputBox.getChildren().addAll(userInput, sendButton);
-        HBox.setHgrow(userInput, Priority.ALWAYS);  // Allow input field to grow
+        HBox.setHgrow(userInput, Priority.ALWAYS);
 
-        // Add components to chatbot panel
         chatbotBox.getChildren().addAll(scrollPane, inputBox);
 
-        // Create a new tab named "Chatbot" and add the panel
         Tab chatbotTab = new Tab("Chatbot");
         chatbotTab.setContent(chatbotBox);
-        chatbotTab.setClosable(false);  // Set the tab to be non-closable
+        chatbotTab.setClosable(false);
         tabPane.getTabs().add(chatbotTab);
-        tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
+        tabPane.getSelectionModel().select(chatbotTab);
     }
-
-    // Helper method to send the message
-    private void sendMessage(TextField userInput, VBox chatHistory, ScrollPane scrollPane) {
-        String userMessage = userInput.getText();
-        if (!userMessage.trim().isEmpty()) {
+    private void sendMessage(TextField userInput, VBox chatHistory, ScrollPane scrollPane, String sessionId) {
+        String userMessage = userInput.getText().trim();
+        if (!userMessage.isEmpty()) {
             chatHistory.getChildren().add(createUserMessage(userMessage));
-            chatHistory.getChildren().add(createChatbotResponse(
-                "You are currently viewing the " + getSelectedTabName() + " tab."
-            ));
+
+            // Add loading spinner and remember its reference
+            HBox loading = createLoadingBubble();
+            Platform.runLater(() -> chatHistory.getChildren().add(loading));
+
             userInput.clear();
 
-            // Wait for the layout to update, then scroll to the bottom
-            Platform.runLater(() -> {
-                chatHistory.heightProperty().addListener((observable, oldValue, newValue) -> {
-                    scrollPane.setVvalue(1.0); // Scroll to the bottom after layout update
-                });
-                chatHistory.layout(); 
-                scrollPane.setVvalue(1.0); 
-            });
+            new Thread(() -> {
+                try {
+                    String safeInput = userMessage.replace("\"", "\\\"").replace("\n", "\\n");
+                    String json = """
+                {
+                    "sessionId": "%s",
+                    "userInput": "%s"
+                }
+                """.formatted(sessionId, safeInput);
+
+                    HttpClient client = HttpClient.newHttpClient();
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create("http://localhost:8080/api/chat"))
+                            .header("Content-Type", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(json))
+                            .build();
+
+                    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                    String botReply = response.body();
+
+                    Platform.runLater(() -> {
+                        chatHistory.getChildren().remove(loading); // Remove spinner
+                        chatHistory.getChildren().add(createChatbotResponse(botReply));
+
+                        scrollPane.layout(); // ensures scrollPane is updated
+                        scrollPane.setVvalue(1.0); // scroll to bottom
+                    });
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    chatHistory.getChildren().remove(loading);
+                    Platform.runLater(() -> chatHistory.getChildren().add(createChatbotResponse("⚠️ Error contacting AI")));
+                }
+            }).start();
         }
     }
+    private HBox createLoadingBubble() {
+        ProgressIndicator spinner = new ProgressIndicator();
+        spinner.setPrefSize(18, 18);
+
+        Label loadingLabel = new Label("Thinking...");
+        loadingLabel.setStyle("-fx-text-fill: #555555; -fx-font-style: italic;");
+
+        HBox loadingBubble = new HBox(5, spinner, loadingLabel);
+        loadingBubble.setPadding(new Insets(10));
+        loadingBubble.setStyle("-fx-background-color: #eeeeee; -fx-background-radius: 20px;");
+        loadingBubble.setMaxWidth(200);
+        loadingBubble.setAlignment(Pos.CENTER_LEFT);
+
+        HBox container = new HBox(loadingBubble);
+        container.setAlignment(Pos.BASELINE_LEFT);
+        return container;
+    }
+
+
 
 
     // Helper method to create the user message bubble
