@@ -135,6 +135,7 @@ public class FrontendDriver extends Application {
         Menu charts = new Menu("Charts");
         Menu dataFiles = new Menu("Data File");
         MenuItem emailRewards = new MenuItem("Email Rewards");
+        MenuItem chatbot = new MenuItem("Chatbot");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
