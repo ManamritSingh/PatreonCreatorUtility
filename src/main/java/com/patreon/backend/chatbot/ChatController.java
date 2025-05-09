@@ -20,7 +20,7 @@ public class ChatController {
         String userInput = payload.get("userInput");
 
         if (sessionId == null || userInput == null) {
-            return "⚠️ Missing sessionId or userInput.";
+            return "Missing sessionId or userInput.";
         }
 
         return chatService.getResponse(sessionId, userInput);

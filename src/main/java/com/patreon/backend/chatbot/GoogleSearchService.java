@@ -35,7 +35,7 @@ public class GoogleSearchService {
 
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                return "⚠️ Google search failed: " + response.code();
+                return "Google search failed: " + response.code();
             }
 
             String body = response.body().string();
@@ -43,9 +43,9 @@ public class GoogleSearchService {
             JsonNode firstItem = root.path("items").get(0);
             return firstItem != null
                     ? firstItem.path("snippet").asText("No snippet found.")
-                    : "⚠️ No results from Google.";
+                    : "No results from Google.";
         } catch (IOException e) {
-            return "⚠️ Search error: " + e.getMessage();
+            return "Search error: " + e.getMessage();
         }
     }
 }
