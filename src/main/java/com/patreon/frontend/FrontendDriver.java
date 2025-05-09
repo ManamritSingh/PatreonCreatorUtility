@@ -18,6 +18,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 
@@ -29,7 +30,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpResponse;
 import java.time.LocalDate;
 import java.util.*;
-
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -77,7 +78,6 @@ public class FrontendDriver extends Application {
         launch(args);
     }
 
-
     @Override
     public void start(Stage primaryStage) {
         //start spring in a new parallel thread
@@ -94,13 +94,14 @@ public class FrontendDriver extends Application {
         layout.setCenter(tabPane);
 
         // Initialize tabs,tables, and charts
+        
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
-        buildCharts("Revenue");
-    	buildCharts("Retention");
-    	buildCharts("Demographics");
-    	buildCharts("Campaign Activity");
+        buildTabContent("Revenue");
+    	buildTabContent("Retention");
+    	buildTabContent("Demographics");
+    	buildTabContent("Campaign Activity");
     	
         
         // Show scene
@@ -141,22 +142,6 @@ public class FrontendDriver extends Application {
         MenuItem viewEarningsFile = new MenuItem("Earnings File");
         MenuItem viewSurveyFile = new MenuItem("Surveys File");
         MenuItem viewUserFile = new MenuItem("User File");
-
-        Menu devMenu = new Menu("API Data Options");
-
-        MenuItem generateReal = new MenuItem("Fetch Real Data");
-        MenuItem generateFake = new MenuItem("Generate Fake Data");
-        MenuItem generateYearlyFake = new MenuItem("Generate Yearly Fake Data");
-
-        generateReal.setOnAction(e -> sendGenerateRequest(false));
-        generateFake.setOnAction(e -> sendGenerateRequest(true));
-        generateYearlyFake.setOnAction(e -> sendGenerateYearlyRequest());
-
-        devMenu.getItems().add(generateYearlyFake);
-        devMenu.getItems().addAll(generateReal, generateFake);
-        menuBar.getMenus().add(devMenu);
-
-
 
         viewRevenue.setOnAction(e -> openTab("Revenue",revenueChartBox));
         viewRetention.setOnAction(e -> openTab("Retention",retentionChartBox));
@@ -319,8 +304,8 @@ public class FrontendDriver extends Application {
         tabPane.getSelectionModel().select(rewardsTab);
     }
 	
-	private void buildCharts(String section) {
-		
+	private void buildTabContent(String section) {
+		List<String> allTiers = ds.getAllTiers(true);
 		switch(section) {
 			case "Revenue":
 				HBox monthlyYearlyEarnings = cc.createMonthlyYearlyEarnings(earningTable);
@@ -328,6 +313,7 @@ public class FrontendDriver extends Application {
                 revenueChartBox.getChildren().setAll(monthlyYearlyEarnings, new Separator(), netGrossChart);
 				break;
 			case "Demographics":
+				System.out.println("Entering Demographics");
 				HBox genderDist = cc.createGenderDistributionChart(userData);
                 HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
                 HBox educationPie = cc.createEducationPieChart(userData);
@@ -338,101 +324,60 @@ public class FrontendDriver extends Application {
 				HBox surveyPie = cc.createSurveyPieChart(surveyData);
                 campaignChartBox.getChildren().setAll(postActivity, new Separator(), surveyPie);
 				break;
-            case "Retention":
-                VBox container = new VBox(10);
-                container.setPadding(new Insets(10));
+			case "Retention":
+			    HBox dataGenBanner = new HBox(5);
+			    dataGenBanner.setPadding(new Insets(5));
+			    dataGenBanner.setStyle("-fx-background-color: #f0f0f0;");
+			    dataGenBanner.setAlignment(Pos.CENTER_LEFT);
+			    dataGenBanner.setMaxWidth(Double.MAX_VALUE);
+			    
+			    Region spacer = new Region();
+			    HBox.setHgrow(spacer, Priority.ALWAYS);
+			    
+			    Label header = new Label("Due to lack of real data, please use generated fake data for chart demo:");
+			    
+			    Button realDataButton = new Button("Show Real Data");
+			    Button fakeDataButton = new Button("Show Fake Data");
+			    
+			    // Track the data type (real or fake)
+			    AtomicBoolean isMock = new AtomicBoolean(true);  // Default to fake data
 
-                Label intervalLabel = new Label("Select Interval:");
-                ComboBox<String> intervalBox = new ComboBox<>();
-                intervalBox.getItems().addAll("daily", "weekly", "monthly");
-                intervalBox.setValue("monthly");
+			    // Chart containers
+			    HBox chart1 = new HBox();
+			    HBox chart2 = new HBox();
+			    HBox chart3 = new HBox();
 
-                Label tierLabel = new Label("Select Tiers:");
-                HBox tierCheckboxes = new HBox(10);
-                List<String> allTiers = ds.getAllTiers(true);
-                List<CheckBox> checkBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    checkBoxes.add(cb);
-                    tierCheckboxes.getChildren().add(cb);
-                }
+			    // Method to update all charts based on data type
+			    Runnable updateCharts = () -> {
+			        chart1.getChildren().setAll(cc.createRetentionLineChart("monthly", allTiers, isMock.get()));
+			        chart2.getChildren().setAll(cc.createAvgChurnChart("monthly", allTiers, isMock.get()));
+			        chart3.getChildren().setAll(cc.createWeeklyChurnChart(allTiers, isMock.get()));
+			    };
 
-                Button updateButton = new Button("Update Retention/Avg Churn Charts");
+			    // Button actions
+			    realDataButton.setOnAction(e -> {
+			        isMock.set(false);
+			        sendGenerateRequest(false); // Use real data
+			        updateCharts.run();
+			        realDataButton.setStyle("-fx-font-weight: bold;");
+			        fakeDataButton.setStyle("");
+			    });
 
-                Label churnTierLabel = new Label("Select Tiers for Weekly Churn:");
-                HBox churnTierCheckboxes = new HBox(10);
-                List<CheckBox> churnCheckBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    churnCheckBoxes.add(cb);
-                    churnTierCheckboxes.getChildren().add(cb);
-                }
-                Button churnUpdateButton = new Button("Update Weekly Churn Chart");
+			    fakeDataButton.setOnAction(e -> {
+			        isMock.set(true);
+			        sendGenerateYearlyRequest(); // Generate fake data
+			        updateCharts.run();
+			        fakeDataButton.setStyle("-fx-font-weight: bold;");
+			        realDataButton.setStyle("");
+			    });
 
-                // Default charts
-                HBox chart1 = new HBox(cc.createRetentionLineChart("monthly", allTiers, true));
-                HBox chart2 = new HBox(cc.createAvgChurnChart("monthly", allTiers, true));
-                HBox chart3 = new HBox(cc.createWeeklyChurnChart(allTiers, true));
+			    // Initialize with fake data
+			    updateCharts.run();
+			    fakeDataButton.setStyle("-fx-font-weight: bold;"); // Start with fake data highlighted
 
-                // Controls for Avg Churn Chart (#2)
-                Label avgChurnLabel = new Label("Select Tiers for Avg Churn:");
-                HBox avgChurnCheckboxes = new HBox(10);
-                List<CheckBox> avgChurnCheckBoxes = new ArrayList<>();
-                for (String tier : allTiers) {
-                    CheckBox cb = new CheckBox(tier);
-                    cb.setSelected(true);
-                    avgChurnCheckBoxes.add(cb);
-                    avgChurnCheckboxes.getChildren().add(cb);
-                }
-                Button avgChurnUpdateButton = new Button("Update Avg Churn Chart");
-
-                // Handler for Chart #2
-                avgChurnUpdateButton.setOnAction(e -> {
-                    List<String> selectedAvgChurnTiers = avgChurnCheckBoxes.stream()
-                            .filter(CheckBox::isSelected)
-                            .map(CheckBox::getText)
-                            .toList();
-                    chart2.getChildren().setAll(cc.createAvgChurnChart(intervalBox.getValue(), selectedAvgChurnTiers, true));
-                });
-
-                VBox chartsArea = new VBox(20,
-                        chart1,
-                        avgChurnLabel,
-                        avgChurnCheckboxes,
-                        avgChurnUpdateButton,
-                        chart2
-                );
-
-                VBox bottomCharts = new VBox(20, chart3);
-
-                // Button handlers
-                updateButton.setOnAction(e -> {
-                    String interval = intervalBox.getValue();
-                    List<String> selectedTiers = checkBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
-                    chart1.getChildren().setAll(cc.createRetentionLineChart(interval, selectedTiers, true));
-                });
-
-
-                churnUpdateButton.setOnAction(e -> {
-                    List<String> selectedChurnTiers = churnCheckBoxes.stream().filter(CheckBox::isSelected).map(CheckBox::getText).toList();
-                    chart3.getChildren().setAll(cc.createWeeklyChurnChart(selectedChurnTiers, true));
-                });
-
-                // Layout
-                container.getChildren().addAll(
-                        intervalLabel, intervalBox,
-                        tierLabel, tierCheckboxes,
-                        updateButton,
-                        chartsArea,
-                        churnTierLabel, churnTierCheckboxes,
-                        churnUpdateButton,
-                        bottomCharts
-                );
-
-                retentionChartBox.getChildren().setAll(container);
-                break;
+			    dataGenBanner.getChildren().addAll(header, spacer, realDataButton, fakeDataButton);
+			    retentionChartBox.getChildren().setAll(dataGenBanner, chart1, new Separator(), chart2, new Separator(), chart3);
+			    break;
         }
 	}
  
@@ -483,22 +428,22 @@ public class FrontendDriver extends Application {
                         switch (type) {
                             case "Earnings":
                                 cp.parseEarningsCSV(file, earningTable, earningData);
-                                buildCharts("Revenue");
+                                buildTabContent("Revenue");
                                 break;
 
                             case "Posts":
                                 cp.parsePostsCSV(file, postTable, postData);
-                                buildCharts("Campaign Activity");
+                                buildTabContent("Campaign Activity");
                                 break;
 
                             case "Surveys":
                                 cp.parseSurveysCSV(file, surveyTable, surveyData);
-                                buildCharts("Campaign Activity");
+                                buildTabContent("Campaign Activity");
                                 break;
 
                             case "User":
                                 cp.parseUserCSV(file, userTable, userData);
-                                buildCharts("Demographics");
+                                buildTabContent("Demographics");
                                 break;
                         }
                     });
@@ -588,5 +533,4 @@ public class FrontendDriver extends Application {
         // In a real application, you'd check which tab is selected
         return "Revenue";  // Return a dummy value for now
     }
-
 }
