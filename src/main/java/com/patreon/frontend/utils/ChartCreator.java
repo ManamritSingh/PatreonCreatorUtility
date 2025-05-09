@@ -799,12 +799,17 @@ public class ChartCreator {
     public HBox createGrossVsNetChart(List<EarningEntry> entries) {
         // Group by year
         Map<Integer, List<EarningEntry>> earningsByYear = entries.stream()
-            .collect(Collectors.groupingBy(EarningEntry::getYearValue));
+                .collect(Collectors.groupingBy(EarningEntry::getYearValue));
 
         List<String> yearOptions = earningsByYear.keySet().stream()
-            .sorted(Comparator.reverseOrder()) // Recent first
-            .map(String::valueOf)
-            .collect(Collectors.toList());
+                .sorted(Comparator.reverseOrder()) // Recent first
+                .map(String::valueOf)
+                .collect(Collectors.toList());
+
+        // Ensure there's at least one year option to avoid null selection
+        if (yearOptions.isEmpty()) {
+            yearOptions.add("2024"); // Default fallback if no data
+        }
 
         // ComboBox for year selection
         ComboBox<String> yearSelector = new ComboBox<>();
@@ -823,8 +828,19 @@ public class ChartCreator {
 
         // Create chart data function
         Runnable updateChart = () -> {
-        	String selected = yearSelector.getValue();
-        	List<EarningEntry> filtered = earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+            String selected = yearSelector.getValue();
+            if (selected == null || selected.isBlank()) {
+                System.err.println("⚠️ No year selected for Gross vs Net chart.");
+                return;
+            }
+
+            List<EarningEntry> filtered;
+            try {
+                filtered = earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+            } catch (NumberFormatException e) {
+                System.err.println("⚠️ Invalid year selected: " + selected);
+                return;
+            }
 
             XYChart.Series<String, Number> grossSeries = new XYChart.Series<>();
             grossSeries.setName("Total Revenue");
@@ -833,12 +849,12 @@ public class ChartCreator {
             netSeries.setName("Net Earnings");
 
             filtered.stream()
-                .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber)) // You’ll need this method
-                .forEach(entry -> {
-                    String label = entry.getMonthValue().substring(0, 3); // "Jan", "Feb", etc.
-                    grossSeries.getData().add(new XYChart.Data<>(label, entry.getTotalValue()));
-                    netSeries.getData().add(new XYChart.Data<>(label, entry.getEarningsValue()));
-                });
+                    .sorted(Comparator.comparingInt(EarningEntry::getMonthNumber))
+                    .forEach(entry -> {
+                        String label = entry.getMonthValue().substring(0, 3); // "Jan", "Feb", etc.
+                        grossSeries.getData().add(new XYChart.Data<>(label, entry.getTotalValue()));
+                        netSeries.getData().add(new XYChart.Data<>(label, entry.getEarningsValue()));
+                    });
 
             chart.getData().setAll(grossSeries, netSeries);
         };
