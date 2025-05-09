@@ -16,7 +16,6 @@ com\patreon\backend\TierSnapshotRepository.class
 com\patreon\frontend\utils\RewardController.class
 com\patreon\backend\EmailService.class
 com\patreon\api\OAuthRedirectServer.class
-com\patreon\backend\chatbot\ResponseInspector.class
 com\patreon\frontend\models\SurveyEntry.class
 com\patreon\backend\config\JacksonConfig.class
 com\patreon\api\models\Tier.class
