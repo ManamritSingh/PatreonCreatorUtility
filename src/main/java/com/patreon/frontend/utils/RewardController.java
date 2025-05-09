@@ -61,7 +61,7 @@ public class RewardController {
         Label triggerLabel = new Label("Trigger:");
         ComboBox<String> triggerCombo = new ComboBox<>();
         triggerCombo.getItems().addAll(
-                "Send Now", "New Subscriber", "Upgraded Tier", "Survey Completion", "Raffle", "Unsubscribed"
+                "Send Now", "New Subscriber", "Upgraded Tier", "Raffle", "Unsubscribed"
         );
         triggerCombo.setValue("Send Now");
 

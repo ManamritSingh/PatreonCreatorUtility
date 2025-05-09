@@ -118,21 +118,6 @@ public class RewardTriggerService {
         }
     }
 
-    public void handleSurveyCompletion(String memberEmail, String tierId, String name) {
-        List<Reward> rewards = rewardRepository.findByTriggerAndStatus("Survey Completion", "Active");
-
-        for (Reward reward : rewards) {
-            if (tierMatches(tierId, reward.getRecipients())) {
-            	String firstName = name;
-                String lastName = name;
-                String personalizedMessage = replacePlaceholders(reward.getMessage(), firstName, lastName);
-                
-                emailService.sendEmailToOne(memberEmail, reward.getSubject(), personalizedMessage);
-                logAction("Survey Completion", memberEmail);
-            }
-        }
-    }
-
     public void triggerRaffleReward() {
         System.out.println("triggerRaffleReward called");
 

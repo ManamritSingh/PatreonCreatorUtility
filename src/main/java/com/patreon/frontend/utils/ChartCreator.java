@@ -146,19 +146,6 @@ public class ChartCreator {
         }
     }
     
-    private PieChart createPieChart(Map<String, Integer> data) {
-    	ObservableList<PieChart.Data> pieChartData = FXCollections.observableArrayList();
-
-    	for (Map.Entry<String, Integer> entry : data.entrySet()) {
-    		String labelWithCount = entry.getKey() + " (" + entry.getValue() + ")";
-    	    pieChartData.add(new PieChart.Data(labelWithCount, entry.getValue()));
-    	}
-    	
-    	PieChart pieChart = new PieChart(pieChartData);
-    	pieChart.setStyle("-fx-background-color: white;");
-    	return pieChart;
-
-    }
     
     public HBox createMonthlyYearlyEarnings(TableView<EarningEntry> earningTable) {
         HBox window = new HBox(10);
@@ -274,49 +261,6 @@ public class ChartCreator {
         window.setPadding(new Insets(10));
         HBox.setHgrow(window, Priority.ALWAYS);
 
-        return window;
-    }
-    
-    public HBox createSurveyPieChart(ObservableList<SurveyEntry> surveyData) {
-        HBox window = new HBox(10); // spacing between controls and chart
-        window.setPadding(new Insets(10));
-
-        Map<String, Integer> choiceCounts = new HashMap<>();
-        for (SurveyEntry entry : surveyData) {
-            String choice = entry.getSurvey().get();
-            choiceCounts.put(choice, choiceCounts.getOrDefault(choice, 0) + 1);
-        }
-
-        PieChart surveyPieChart = createPieChart(choiceCounts);
-        surveyPieChart.setTitle("Surveys Completed");
-
-        // Create button to toggle "Show Percentages"
-        CheckBox showPercentages = new CheckBox("Show Percentages");
-        showPercentages.setSelected(false);
-
-        showPercentages.setOnAction(e -> {
-            for (PieChart.Data data : surveyPieChart.getData()) {
-                if (showPercentages.isSelected()) {
-                    double total = choiceCounts.values().stream().mapToInt(Integer::intValue).sum();
-                    double percent = (data.getPieValue() / total) * 100;
-                    data.setName(String.format("%s (%.1f%%)", data.getName().split(" \\(")[0], percent));
-                } else {
-                    data.setName(data.getName().split(" \\(")[0]); // reset name
-                }
-            }
-        });
-
-        VBox controlBox = new VBox(10, showPercentages);
-        controlBox.setAlignment(Pos.TOP_LEFT);
-        controlBox.setPadding(new Insets(5));
-
-        // Allow chart to expand with window
-        StackPane chartPane = new StackPane(surveyPieChart);
-        chartPane.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(chartPane, Priority.ALWAYS);
-        surveyPieChart.setStyle("-fx-background-color: white;");
-
-        window.getChildren().addAll(controlBox, chartPane);
         return window;
     }
     

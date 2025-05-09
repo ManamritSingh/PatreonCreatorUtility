@@ -190,68 +190,6 @@ public class DatabaseServices {
             }
     }
     
-    public void loadSurveyFromDB(TableView<SurveyEntry> surveyTable, ObservableList<SurveyEntry> surveyData) {
-    	String query = "SELECT submittedDateTime, name, email, tier, survey, comments FROM surveys";  // match your actual DB table and columns
-
-    	Connection conn = null;
-
-    	try {conn = DatabaseConnection.getConnection();
-    		PreparedStatement stmt = conn.prepareStatement(query);
-    		ResultSet rs = stmt.executeQuery();
-
-    		surveyData.clear();
-
-    		while (rs.next()) {
-    			SurveyEntry entry = new SurveyEntry(
-    					rs.getString("submittedDateTime"),
-    					rs.getString("name"),
-    					rs.getString("email"),
-    					rs.getString("tier"),
-    					rs.getString("survey"),
-    					rs.getString("comments")
-    			);
-
-    			surveyData.add(entry);
-    		}
-
-    		surveyTable.setItems(surveyData);
-
-    		rs.close();
-    		stmt.close();
-    		conn.close();
-
-    	} catch (SQLException e) {
-    		if (e.getMessage().contains("no such table")) {
-    			System.out.println("Survey table does not exist. Creating it...");
-    			if (conn != null) {
-    				createSurveyTable(conn);
-    			}
-    		} else {
-    			e.printStackTrace();
-    		}
-    	}
-    }
-    
-    public static void createSurveyTable(Connection conn) {
-    	String sql = """
-                CREATE TABLE IF NOT EXISTS surveys (
-                    submittedDateTime TEXT, 
-                    name TEXT, 
-                    email TEXT, 
-                    tier TEXT, 
-                    survey TEXT, 
-                    comments TEXT
-                )
-                """;
-
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(sql);
-                System.out.println("Surveys table created.");
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-    }
-    
     public void loadUserFromDB(TableView<UserEntry> userTable, ObservableList<UserEntry> userData) {
     	String query = "SELECT id, address_line1, address_line2, address_name, age_range, city,"
     			+ "country, education_level, email, first_name, gender, income_range, is_active,"
@@ -503,50 +441,6 @@ public class DatabaseServices {
                 insertStmt.setInt(6, entry.getNewPaidMembers().get());
                 insertStmt.setString(7, entry.getPublishedDateTime().get());
                 insertStmt.setString(8, entry.getLink().get());
-
-                insertStmt.addBatch();
-            }
-
-            insertStmt.executeBatch();
-            connection.commit(); // Finish transaction
-
-        } catch (SQLException e) {
-            if (connection != null) {
-                connection.rollback(); // Roll back on error
-            }
-            throw e;
-        } finally {
-            if (deleteStmt != null) deleteStmt.close();
-            if (insertStmt != null) insertStmt.close();
-            connection.setAutoCommit(true);
-        }
-    }
-    
-    public static void saveSurveyToDatabase(Connection connection, List<SurveyEntry> surveyData) throws SQLException{
-    	String deleteSQL = "DELETE FROM surveys";
-        String insertSQL = "INSERT INTO surveys (" +
-                "submittedDateTime, name, email, tier, survey, comments " +
-                ") VALUES (?, ?, ?, ?, ?, ?)";
-
-        PreparedStatement deleteStmt = null;
-        PreparedStatement insertStmt = null;
-
-        try {
-            connection.setAutoCommit(false); // Start transaction
-
-            // Step 1: Clear table
-            deleteStmt = connection.prepareStatement(deleteSQL);
-            deleteStmt.executeUpdate();
-
-            // Step 2: Insert new data
-            insertStmt = connection.prepareStatement(insertSQL);
-            for (SurveyEntry entry : surveyData) {
-                insertStmt.setString(1, entry.getSubmittedDateTime().get());
-                insertStmt.setString(2, entry.getName().get());
-                insertStmt.setString(3, entry.getEmail().get());
-                insertStmt.setString(4, entry.getTier().get());
-                insertStmt.setString(5, entry.getSurvey().get());
-                insertStmt.setString(6, entry.getComments().get());
 
                 insertStmt.addBatch();
             }
@@ -892,52 +786,4 @@ public class DatabaseServices {
 	    System.out.println("Finished GetWeeklyChurnRates");
 	    return churnData;
 	}
-	
-		public static Set<String> getExistingSurveyEmails() {
-			Set<String> existingEmails = new HashSet<>();
-			String query = "SELECT email FROM surveys";  // Assuming your survey table has a column 'email'
-
-			try (Connection conn = DatabaseConnection.getConnection();
-					PreparedStatement stmt = conn.prepareStatement(query);
-					ResultSet rs = stmt.executeQuery()) {
-
-				while (rs.next()) {
-					String email = rs.getString("email");  // Get the email from the result set
-					existingEmails.add(email);            // Add email to the set
-				}
-
-			} catch (SQLException e) {
-				e.printStackTrace();
-			}
-
-			return existingEmails;
-		}
-		
-		public static ArrayList<EmailReward> getActiveSurveyRewards() {
-	        ArrayList<EmailReward> activeRewards = new ArrayList<>();
-	        String query = "SELECT * FROM rewards WHERE trigger = 'Survey Completion' AND status = 'Active'";  // Assuming you have a table 'rewards'
-
-	        try (Connection conn = DatabaseConnection.getConnection();
-	             PreparedStatement stmt = conn.prepareStatement(query);
-	             ResultSet rs = stmt.executeQuery()) {
-
-	            while (rs.next()) {
-	                // Assuming 'EmailReward' has a constructor that accepts all the necessary fields
-	                EmailReward reward = new EmailReward(
-	                    rs.getInt("id"),
-	                    rs.getString("message"),
-	                    rs.getString("subject"),
-	                    rs.getString("trigger"),
-	                    rs.getString("recipients"),
-	                    rs.getString("status")
-	                );
-	                activeRewards.add(reward);  // Add to the list
-	            }
-
-	        } catch (SQLException e) {
-	            e.printStackTrace();
-	        }
-
-	        return activeRewards;
-	    }
 }

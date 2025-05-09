@@ -119,29 +119,6 @@ public class TableCreator {
     }
 	
 	@SuppressWarnings("unchecked")
-	public void setupSurveyTableColumns(TableView<SurveyEntry> surveyTable) {
-        TableColumn<SurveyEntry, String> submittedDateTimeCol = new TableColumn<>("Submitted Date");
-        submittedDateTimeCol.setCellValueFactory(cellData -> cellData.getValue().getSubmittedDateTime());
-
-        TableColumn<SurveyEntry, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(cellData -> cellData.getValue().getName());
-
-        TableColumn<SurveyEntry, String> emailCol = new TableColumn<>("Email");
-        emailCol.setCellValueFactory(cellData -> cellData.getValue().getEmail());
-
-        TableColumn<SurveyEntry, String> tierCol = new TableColumn<>("Tier");
-        tierCol.setCellValueFactory(cellData -> cellData.getValue().getTier());
-
-        TableColumn<SurveyEntry, String> surveyCol = new TableColumn<>("Survey Type");
-        surveyCol.setCellValueFactory(cellData -> cellData.getValue().getSurvey());
-
-        TableColumn<SurveyEntry, String> commentsCol = new TableColumn<>("Comments");
-        commentsCol.setCellValueFactory(cellData -> cellData.getValue().getComments());
-
-        surveyTable.getColumns().addAll(submittedDateTimeCol, nameCol, emailCol, tierCol, surveyCol, commentsCol);
-    }
-	
-	@SuppressWarnings("unchecked")
 	public void setupUserTableColumns(TableView<UserEntry> userTable) {
     	TableColumn<UserEntry, String> userIDCol = new TableColumn<>("User ID");
         userIDCol.setCellValueFactory(cellData -> cellData.getValue().getUserID());

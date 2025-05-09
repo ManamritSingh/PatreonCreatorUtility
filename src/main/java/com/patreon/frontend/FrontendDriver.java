@@ -56,13 +56,11 @@ public class FrontendDriver extends Application {
 
     private TableView<EarningEntry> earningTable = new TableView<>();
 	private TableView<PostEntry> postTable = new TableView<>();
-	private TableView<SurveyEntry> surveyTable = new TableView<>();
 	private TableView<EmailReward> rewardsTable = new TableView<>();
 	private TableView<UserEntry> userTable = new TableView<>();
 
 	private ObservableList<EarningEntry> earningData = FXCollections.observableArrayList();
-	private ObservableList<PostEntry> postData = FXCollections.observableArrayList(); 
-	private ObservableList<SurveyEntry> surveyData = FXCollections.observableArrayList();
+	private ObservableList<PostEntry> postData = FXCollections.observableArrayList(); ;
 	private ObservableList<EmailReward> rewardList = FXCollections.observableArrayList();
 	private ObservableList<UserEntry> userData = FXCollections.observableArrayList();
     
@@ -152,7 +150,6 @@ public class FrontendDriver extends Application {
         viewCampaign.setOnAction(e -> openTab("Campaign Activity",campaignChartBox));
         viewPostFile.setOnAction(e -> openDataTab("Posts File",postTable));
         viewEarningsFile.setOnAction(e -> openDataTab("Earnings File",earningTable));
-        viewSurveyFile.setOnAction(e -> openDataTab("Surveys File",surveyTable));
         viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
@@ -400,10 +397,6 @@ public class FrontendDriver extends Application {
     	ds.loadPostFromDB(postTable, postData);
     	postTable.setItems(postData);
     	
-    	tc.setupSurveyTableColumns(surveyTable);
-    	ds.loadSurveyFromDB(surveyTable, surveyData);
-    	surveyTable.setItems(surveyData);
-    	
     	tc.setupUserTableColumns(userTable);
     	ds.loadUserFromDB(userTable, userData);
     	userTable.setItems(userData);
@@ -421,7 +414,7 @@ public class FrontendDriver extends Application {
             File file = fileChooser.showOpenDialog(window);
 
             if (file != null) {
-                List<String> options = Arrays.asList("Earnings", "Posts", "Surveys","User");
+                List<String> options = Arrays.asList("Earnings", "Posts","User");
                 ChoiceDialog<String> dialog = new ChoiceDialog<>("Earnings", options);
                 dialog.setTitle("Select Data Type");
                 dialog.setHeaderText("What type of data is this?");
@@ -442,11 +435,6 @@ public class FrontendDriver extends Application {
 
                             case "Posts":
                                 cp.parsePostsCSV(file, postTable, postData);
-                                buildTabContent("Campaign Activity");
-                                break;
-
-                            case "Surveys":
-                                cp.parseSurveysCSV(file, surveyTable, surveyData);
                                 buildTabContent("Campaign Activity");
                                 break;
 
