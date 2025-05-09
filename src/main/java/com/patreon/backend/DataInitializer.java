@@ -19,14 +19,9 @@ public class DataInitializer {
             if (repo.count() == 0) {
                 // hardcoded test users
                 List<Member> testUsers = List.of(
-                        new Member("900", "Manamrit", "Singh", "manamritsingh@nyu.edu", true,
-                                "test-tier", 0, true, true),
 
                         new Member("901","Christine", "Wagner",  "caw561@nyu.edu", true,
-                                "test-tier", 0, true, true),
-
-                        new Member("902", "Aryan", "Donde", "and8995@nyu.edu", true,
-                                "test-tier", 0, true, true)  
+                                "test-tier", 0, true, true)
                 );
 
                 repo.saveAll(testUsers);

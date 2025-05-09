@@ -54,7 +54,6 @@ public class ChartCreator {
 
         chart.getData().add(series);
 
-        // Optional styling
         chart.setStyle("-fx-background-color: white;");
         return chart;
     }
@@ -156,6 +155,7 @@ public class ChartCreator {
     	}
     	
     	PieChart pieChart = new PieChart(pieChartData);
+    	pieChart.setStyle("-fx-background-color: white;");
     	return pieChart;
 
     }
@@ -227,6 +227,7 @@ public class ChartCreator {
             }
         });
 
+        monthlyChart.setStyle("-fx-background-color: white;");
         window.getChildren().addAll(controlBox, chartPane);
         window.setPadding(new Insets(10));
         return window;
@@ -268,6 +269,7 @@ public class ChartCreator {
         chartPane.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(chartPane, Priority.ALWAYS);
 
+        postSBC.setStyle("-fx-background-color: white;");
         window.getChildren().setAll(checkBoxPanel, chartPane);
         window.setPadding(new Insets(10));
         HBox.setHgrow(window, Priority.ALWAYS);
@@ -312,6 +314,7 @@ public class ChartCreator {
         StackPane chartPane = new StackPane(surveyPieChart);
         chartPane.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(chartPane, Priority.ALWAYS);
+        surveyPieChart.setStyle("-fx-background-color: white;");
 
         window.getChildren().addAll(controlBox, chartPane);
         return window;
@@ -369,7 +372,8 @@ public class ChartCreator {
 
         HBox.setHgrow(chart, Priority.ALWAYS);
         chart.setMaxWidth(Double.MAX_VALUE);
-
+        
+        chart.setStyle("-fx-background-color: white;");
         HBox layout = new HBox(10, buttonBar, chart);
         layout.setPadding(new Insets(10));
         return layout;
@@ -457,7 +461,8 @@ public class ChartCreator {
 
         HBox.setHgrow(scatterChart, Priority.ALWAYS);
         scatterChart.setMaxWidth(Double.MAX_VALUE);
-
+        scatterChart.setStyle("-fx-background-color: white;");
+        
         HBox layout = new HBox(scatterChart);
         layout.setPadding(new Insets(10));
         return layout;
@@ -504,6 +509,7 @@ public class ChartCreator {
 
         updateEducationPieChart(pieChart, "All", userData); // Initial state
 
+        pieChart.setStyle("-fx-background-color: white;");
         HBox layout = new HBox(10, buttonBar, pieChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.CENTER);
@@ -626,6 +632,7 @@ public class ChartCreator {
         refreshData.run();
         updateChart.run();
 
+        retentionChart.setStyle("-fx-background-color: white;");
         HBox layout = new HBox(20, controlBox, retentionChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.TOP_LEFT);
@@ -641,39 +648,68 @@ public class ChartCreator {
 
         if (churnData == null || churnData.isEmpty()) {
             System.out.println("No churn data available.");
-            return new HBox(); // Return empty if data is not available
+            return new HBox();
         }
 
-        // Control box for checkboxes
         VBox controlBox = new VBox(10);
         controlBox.setPadding(new Insets(10));
         Label avgChurnLabel = new Label("Select Tiers:");
         controlBox.getChildren().add(avgChurnLabel);
 
-        // Create the LineChart
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
         LineChart<String, Number> churnChart = new LineChart<>(xAxis, yAxis);
         churnChart.setTitle("Average Churn Rate - " + interval);
+        churnChart.setAnimated(false);
         churnChart.setMinWidth(600);
         HBox.setHgrow(churnChart, Priority.ALWAYS);
 
-        // Create checkboxes for each tier
-        List<CheckBox> checkBoxes = new ArrayList<>();
-        for (String tier : allTiers) {
-            CheckBox cb = new CheckBox(tier);
-            cb.setSelected(true);  // Default to checked
-            checkBoxes.add(cb);
-            controlBox.getChildren().add(cb);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy");
 
-            // Add a listener to update the chart when the checkbox is clicked
-            cb.setOnAction(e -> updateAvgChurnChart(churnChart, checkBoxes, churnData));
+        // Create and cache series per tier
+        Map<String, XYChart.Series<String, Number>> churnSeriesMap = new LinkedHashMap<>();
+        for (String tier : allTiers) {
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName(tier);
+
+            Map<LocalDate, Double> data = churnData.get(tier);
+            if (data != null) {
+                data.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        String dateLabel = entry.getKey().format(formatter).toUpperCase();
+                        series.getData().add(new XYChart.Data<>(dateLabel, entry.getValue()));
+                    });
+            }
+
+            churnSeriesMap.put(tier, series);
         }
 
-        // Initial population of the chart
-        updateAvgChurnChart(churnChart, checkBoxes, churnData);
+        // Checkboxes and listeners
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        Runnable refreshChart = () -> {
+            churnChart.getData().clear();
+            for (CheckBox cb : checkBoxes) {
+                if (cb.isSelected()) {
+                    XYChart.Series<String, Number> series = churnSeriesMap.get(cb.getText());
+                    if (series != null) {
+                        churnChart.getData().add(series);
+                    }
+                }
+            }
+        };
 
-        // Layout
+        for (String tier : allTiers) {
+            CheckBox cb = new CheckBox(tier);
+            cb.setSelected(true);
+            checkBoxes.add(cb);
+            controlBox.getChildren().add(cb);
+            cb.setOnAction(e -> refreshChart.run());
+        }
+
+        refreshChart.run(); // Initial chart population
+        
+        churnChart.setStyle("-fx-background-color: white;");
         HBox layout = new HBox(20, controlBox, churnChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.TOP_LEFT);
@@ -683,31 +719,6 @@ public class ChartCreator {
         return layout;
     }
 
-    // Helper function to update the chart
-    private void updateAvgChurnChart(LineChart<String, Number> churnChart, List<CheckBox> checkBoxes, Map<String, Map<LocalDate, Double>> churnData) {
-    	churnChart.getData().clear(); // Clear existing data
-        
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM yyyy");
-        
-        for (CheckBox cb : checkBoxes) {
-            if (cb.isSelected()) {
-                String tier = cb.getText();
-                if (churnData.containsKey(tier)) {
-                    XYChart.Series<String, Number> series = new XYChart.Series<>();
-                    if (churnData.containsKey(tier) && churnData.get(tier) != null) {
-                    for (Map.Entry<LocalDate, Double> entry : churnData.get(tier).entrySet()) {
-                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
-                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
-                    }
-                    churnChart.getData().add(series);
-                    }
-                }
-            }
-        }
-    }
-
-
-    // 3. Weekly Churn Line Chart
     public HBox createWeeklyChurnChart(List<String> allTiers, boolean isMock) {
         DatabaseServices ds = new DatabaseServices();
         Map<String, Map<LocalDate, Integer>> churnData = ds.getWeeklyChurnData(allTiers, isMock);
@@ -717,39 +728,65 @@ public class ChartCreator {
             return new HBox(); // Return empty if data is not available
         }
 
-        // Control Panel
         VBox controlBox = new VBox(10);
         controlBox.setPadding(new Insets(10));
         Label churnTierLabel = new Label("Select Tiers:");
         controlBox.getChildren().add(churnTierLabel);
 
-        // Chart Setup
         CategoryAxis xAxis = new CategoryAxis();
         NumberAxis yAxis = new NumberAxis();
         LineChart<String, Number> churnWeeklyChart = new LineChart<>(xAxis, yAxis);
         churnWeeklyChart.setTitle("Weekly Churn - Last 15 Weeks");
         churnWeeklyChart.setMinWidth(800);
+        churnWeeklyChart.setAnimated(false);
         HBox.setHgrow(churnWeeklyChart, Priority.ALWAYS);
 
-        // Checkboxes
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'W'w YYYY");
+
+        // Create and store series for each tier
+        Map<String, XYChart.Series<String, Number>> seriesMap = new LinkedHashMap<>();
+        for (String tier : allTiers) {
+            XYChart.Series<String, Number> series = new XYChart.Series<>();
+            series.setName(tier);
+
+            Map<LocalDate, Integer> tierData = churnData.get(tier);
+            if (tierData != null) {
+                tierData.entrySet().stream()
+                    .sorted(Map.Entry.comparingByKey())
+                    .forEach(entry -> {
+                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
+                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
+                    });
+            }
+
+            seriesMap.put(tier, series);
+        }
+
+        // Checkbox logic
         List<CheckBox> churnCheckBoxes = new ArrayList<>();
+        Runnable refreshChart = () -> {
+            churnWeeklyChart.getData().clear();
+            for (CheckBox cb : churnCheckBoxes) {
+                if (cb.isSelected()) {
+                    XYChart.Series<String, Number> series = seriesMap.get(cb.getText());
+                    if (series != null) {
+                        churnWeeklyChart.getData().add(series);
+                    }
+                }
+            }
+        };
+
         for (String tier : allTiers) {
             CheckBox cb = new CheckBox(tier);
-            cb.setSelected(true);  // Default to checked
+            cb.setSelected(true);
             churnCheckBoxes.add(cb);
             controlBox.getChildren().add(cb);
-
-            // Add listener for dynamic chart updates
-            cb.setOnAction(e -> updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData));
+            cb.setOnAction(e -> refreshChart.run());
         }
 
-        if (churnData != null && !churnData.isEmpty()) {
-            updateWeeklyChurnChart(churnWeeklyChart, churnCheckBoxes, churnData);
-        } else {
-            churnWeeklyChart.setTitle("Weekly Churn - No Data Available");
-        }
+        refreshChart.run(); // Initial chart population
 
-        // Final Layout
+        churnWeeklyChart.setStyle("-fx-background-color: white;");
         HBox layout = new HBox(20, controlBox, churnWeeklyChart);
         layout.setPadding(new Insets(10));
         layout.setAlignment(Pos.TOP_LEFT);
@@ -759,71 +796,6 @@ public class ChartCreator {
         return layout;
     }
 
-    // Helper function to update the weekly churn chart
-    private void updateWeeklyChurnChart(LineChart<String, Number> chart, List<CheckBox> checkBoxes, Map<String, Map<LocalDate, Integer>> churnData) {
-        chart.getData().clear(); // Clear existing data
-        
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'W'w YYYY");
-        
-        for (CheckBox cb : checkBoxes) {
-            if (cb.isSelected()) {
-                String tier = cb.getText();
-                if (churnData.containsKey(tier)) {
-                    XYChart.Series<String, Number> series = new XYChart.Series<>();
-                    series.setName(tier);
-                    if (churnData.containsKey(tier) && churnData.get(tier) != null) {
-                    for (Map.Entry<LocalDate, Integer> entry : churnData.get(tier).entrySet()) {
-                        String formattedDate = entry.getKey().format(formatter).toUpperCase();
-                        series.getData().add(new XYChart.Data<>(formattedDate, entry.getValue()));
-                    }
-                    chart.getData().add(series);
-                    }
-                }
-            }
-        }
-    }
-
-
-    private String formatDateLabel(LocalDate date, String interval) {
-        switch (interval.toLowerCase()) {
-            case "monthly":
-                return date.getYear() + "-" + String.format("%02d", date.getMonthValue());
-            case "weekly":
-                return date.getYear() + " W" + date.get( java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear());
-            default:
-                return date.toString(); // daily
-        }
-    }
-
-
-//    public HBox createWeeklyChurnChart(List<String> selectedTiers) {
-//        Map<String, Map<LocalDate, Integer>> churnData = new DatabaseServices().getWeeklyChurnData(selectedTiers, true);
-//
-//        CategoryAxis xAxis = new CategoryAxis();
-//        NumberAxis yAxis = new NumberAxis();
-//        xAxis.setLabel("Week");
-//        yAxis.setLabel("Churn Count");
-//
-//        LineChart<String, Number> chart = new LineChart<>(xAxis, yAxis);
-//        chart.setTitle("Weekly Patron Churn (Last 15 Weeks)");
-//
-//        for (Map.Entry<String, Map<LocalDate, Integer>> entry : churnData.entrySet()) {
-//            XYChart.Series<String, Number> series = new XYChart.Series<>();
-//            series.setName(entry.getKey());
-//
-//            for (Map.Entry<LocalDate, Integer> dataPoint : entry.getValue().entrySet()) {
-//                String week = dataPoint.getKey().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-//                series.getData().add(new XYChart.Data<>(week, dataPoint.getValue()));
-//            }
-//
-//            chart.getData().add(series);
-//        }
-//
-//        HBox box = new HBox(chart);
-//        box.setPadding(new Insets(10));
-//        return box;
-//    }
-    
     public HBox createGrossVsNetChart(List<EarningEntry> entries) {
         // Group by year
         Map<Integer, List<EarningEntry>> earningsByYear = entries.stream()
@@ -833,12 +805,11 @@ public class ChartCreator {
             .sorted(Comparator.reverseOrder()) // Recent first
             .map(String::valueOf)
             .collect(Collectors.toList());
-        yearOptions.add(0, "All"); // Add "All" at the top
 
         // ComboBox for year selection
         ComboBox<String> yearSelector = new ComboBox<>();
         yearSelector.getItems().addAll(yearOptions);
-        yearSelector.getSelectionModel().selectFirst(); // Default to "All"
+        yearSelector.getSelectionModel().selectFirst();
 
         // Chart and container
         CategoryAxis xAxis = new CategoryAxis();
@@ -852,10 +823,8 @@ public class ChartCreator {
 
         // Create chart data function
         Runnable updateChart = () -> {
-            String selected = yearSelector.getValue();
-            List<EarningEntry> filtered = selected.equals("All")
-                ? entries
-                : earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
+        	String selected = yearSelector.getValue();
+        	List<EarningEntry> filtered = earningsByYear.getOrDefault(Integer.parseInt(selected), Collections.emptyList());
 
             XYChart.Series<String, Number> grossSeries = new XYChart.Series<>();
             grossSeries.setName("Total Revenue");

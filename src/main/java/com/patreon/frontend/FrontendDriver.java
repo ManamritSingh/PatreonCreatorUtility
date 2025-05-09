@@ -13,7 +13,6 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
@@ -67,22 +66,27 @@ public class FrontendDriver extends Application {
 	private ObservableList<EmailReward> rewardList = FXCollections.observableArrayList();
 	private ObservableList<UserEntry> userData = FXCollections.observableArrayList();
     
-    private RewardController rc = new RewardController();
+    private RewardController rc;
     private TableCreator tc = new TableCreator();
-    private CSVParser cp = new CSVParser();
+    private CSVParser cp;
     private ChartCreator cc = new ChartCreator();
     private DatabaseServices ds = new DatabaseServices();
+    
 
 
     public static void main(String[] args) {
         launch(args);
     }
 
-
     @Override
     public void start(Stage primaryStage) {
         //start spring in a new parallel thread
-        Thread springThread = new Thread(() -> context = SpringApplication.run(com.patreon.backend.DemoApplication.class));
+    	Thread springThread = new Thread(() -> {
+            context = SpringApplication.run(com.patreon.backend.DemoApplication.class);
+            // Once Spring is ready, get the RewardController bean
+            rc = context.getBean(RewardController.class);
+            cp = context.getBean(CSVParser.class);
+        });
         springThread.setDaemon(true);
         springThread.start();
 
@@ -90,13 +94,12 @@ public class FrontendDriver extends Application {
         window.setTitle("Patreon Creator Toolkit");
 
         // Layout setup
-        //toolBar.setOrientation(Orientation.VERTICAL);
         BorderPane layout = new BorderPane();
         layout.setTop(createMenuBar());
-        //layout.setLeft(toolBar);
         layout.setCenter(tabPane);
 
-        // Initialize tabs,tables, and toolbars
+        // Initialize tabs,tables, and charts
+        openChatbotTab();
         initializeTabs();
         initializeTables();
         tabPane.getSelectionModel().select(0);
@@ -104,8 +107,7 @@ public class FrontendDriver extends Application {
     	buildTabContent("Retention");
     	buildTabContent("Demographics");
     	buildTabContent("Campaign Activity");
-
-
+    	
         // Show scene
         Scene scene = new Scene(layout, 960, 600);
         scene.getStylesheets().add(getClass().getResource("/styles/chart-styles.css").toExternalForm());
@@ -130,12 +132,10 @@ public class FrontendDriver extends Application {
 
         Menu fileMenu = new Menu("File");
         MenuItem menuOpen = new MenuItem("Open");
-        MenuItem menuSave = new MenuItem("Save");
         Menu viewMenu = new Menu("View");
         Menu charts = new Menu("Charts");
         Menu dataFiles = new Menu("Data File");
         MenuItem emailRewards = new MenuItem("Email Rewards");
-        MenuItem chatbot = new MenuItem("Chatbot");
 
         MenuItem viewRevenue = new MenuItem("Revenue");
         MenuItem viewRetention = new MenuItem("Retention");
@@ -156,7 +156,6 @@ public class FrontendDriver extends Application {
         viewUserFile.setOnAction(e -> openDataTab("User File", userTable));
         
         emailRewards.setOnAction(e -> openRewardsTab());
-        chatbot.setOnAction(e -> openChatbotTab());
 
         //Open CSV Files
         menuOpen.setOnAction(e -> openFile());
@@ -164,7 +163,7 @@ public class FrontendDriver extends Application {
         viewMenu.getItems().addAll(charts,dataFiles);
         charts.getItems().addAll(viewRevenue, viewRetention, viewDemographics, viewCampaign);
         dataFiles.getItems().addAll(viewPostFile, viewEarningsFile, viewSurveyFile, viewUserFile);
-        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards, chatbot);
+        fileMenu.getItems().addAll(menuOpen, viewMenu, emailRewards);
         menuBar.getMenus().add(fileMenu);
 
         return menuBar;
@@ -203,13 +202,10 @@ public class FrontendDriver extends Application {
             e.printStackTrace();
         }
     }
-
-
     // ----------------------------
     // Tab Initialization
     // ----------------------------
     private void initializeTabs() {
-
     	openTab("Revenue", revenueChartBox);
         openTab("Retention", retentionChartBox);
         openTab("Demographics", demographicChartBox);
@@ -265,9 +261,27 @@ public class FrontendDriver extends Application {
                 return;
             }
         }
+        HBox mockPanel = new HBox(5);
+        mockPanel.setPadding(new Insets(5));
+	    mockPanel.setStyle("-fx-background-color: #f0f0f0;");
+	    mockPanel.setAlignment(Pos.CENTER_LEFT);
+	    mockPanel.setMaxWidth(Double.MAX_VALUE);
+        
+	    Label mockLabel = new Label("For demo, click buttom to mock API member calls:");
+	    Button mockButton = new Button("Mock API call");
+	    Region spacer = new Region();
+	    HBox.setHgrow(spacer, Priority.ALWAYS);
+	    HBox statusPanel = new HBox(5);
+	    Label statusLabel = new Label();
+	    statusLabel.setAlignment(Pos.CENTER_RIGHT);
+	    statusPanel.getChildren().setAll(statusLabel);
+	    statusPanel.setAlignment(Pos.CENTER_RIGHT);
+	    
+	    mockButton.setOnAction(e -> generateMockMember(statusLabel));
+	    mockPanel.getChildren().setAll(mockLabel,spacer, mockButton);
 
         // Left VBox with buttons
-        VBox buttonPanel = new VBox(10);
+        HBox buttonPanel = new HBox(10);
         buttonPanel.setPadding(new Insets(10));
         buttonPanel.setAlignment(Pos.TOP_LEFT);
         buttonPanel.setMinWidth(100); // optional: fixed width
@@ -281,25 +295,16 @@ public class FrontendDriver extends Application {
         buttonPanel.getChildren().addAll(newButton, deleteButton);
 
         // Right VBox with rewardsTable, set to grow
-        VBox tableContainer = new VBox(rewardsTable);
+        VBox tableContainer = new VBox();
+        tableContainer.getChildren().addAll(buttonPanel, rewardsTable);
         tableContainer.setPadding(new Insets(10));
         tableContainer.setAlignment(Pos.TOP_LEFT);
-
-        // Make rewardsTable grow to fill width
         rewardsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
         VBox.setVgrow(rewardsTable, Priority.ALWAYS);
 
-        // HBox with buttons and table, make tableContainer grow
-        HBox contentBox = new HBox(20, buttonPanel, tableContainer);
-        contentBox.setPadding(new Insets(10));
-        HBox.setHgrow(tableContainer, Priority.ALWAYS); // allow right side to grow
-
         // ScrollPane to wrap everything
-        ScrollPane scrollPane = new ScrollPane(contentBox);
-        scrollPane.setFitToWidth(true);
-        scrollPane.setFitToHeight(true);
-        scrollPane.setPadding(new Insets(10));
-        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        VBox scrollPane = new VBox();
+        scrollPane.getChildren().addAll(mockPanel, tableContainer, statusPanel);
 
         Tab rewardsTab = new Tab("Email Rewards", scrollPane);
         rewardsTab.setClosable(true);
@@ -320,7 +325,7 @@ public class FrontendDriver extends Application {
 				HBox genderDist = cc.createGenderDistributionChart(userData);
                 HBox behavior = cc.createIncomeVsPledgeScatterChart(userData);
                 HBox educationPie = cc.createEducationPieChart(userData);
-                demographicChartBox.getChildren().setAll(genderDist, new Separator(), behavior, new Separator(), educationPie);
+                demographicChartBox.getChildren().setAll(genderDist, new Separator(), behavior, new Separator(), educationPie); 
 				break;
 			case "Campaign Activity":
 				HBox postActivity = cc.createPostActivity(postData);
@@ -333,15 +338,15 @@ public class FrontendDriver extends Application {
 			    dataGenBanner.setStyle("-fx-background-color: #f0f0f0;");
 			    dataGenBanner.setAlignment(Pos.CENTER_LEFT);
 			    dataGenBanner.setMaxWidth(Double.MAX_VALUE);
-
+			    
 			    Region spacer = new Region();
 			    HBox.setHgrow(spacer, Priority.ALWAYS);
-
+			    
 			    Label header = new Label("Due to lack of real data, please use generated fake data for chart demo:");
-
+			    
 			    Button realDataButton = new Button("Show Real Data");
 			    Button fakeDataButton = new Button("Show Fake Data");
-
+			    
 			    // Track the data type (real or fake)
 			    AtomicBoolean isMock = new AtomicBoolean(true);  // Default to fake data
 
@@ -349,6 +354,9 @@ public class FrontendDriver extends Application {
 			    HBox chart1 = new HBox();
 			    HBox chart2 = new HBox();
 			    HBox chart3 = new HBox();
+			    
+			    sendGenerateYearlyRequest(); // Generate fake data
+			    sendGenerateRequest(false); // Use real data
 
 			    // Method to update all charts based on data type
 			    Runnable updateCharts = () -> {
@@ -360,7 +368,6 @@ public class FrontendDriver extends Application {
 			    // Button actions
 			    realDataButton.setOnAction(e -> {
 			        isMock.set(false);
-			        sendGenerateRequest(false); // Use real data
 			        updateCharts.run();
 			        realDataButton.setStyle("-fx-font-weight: bold;");
 			        fakeDataButton.setStyle("");
@@ -368,7 +375,6 @@ public class FrontendDriver extends Application {
 
 			    fakeDataButton.setOnAction(e -> {
 			        isMock.set(true);
-			        sendGenerateYearlyRequest(); // Generate fake data
 			        updateCharts.run();
 			        fakeDataButton.setStyle("-fx-font-weight: bold;");
 			        realDataButton.setStyle("");
@@ -457,7 +463,7 @@ public class FrontendDriver extends Application {
             ex.printStackTrace();
             System.out.println("Error opening file: " + ex.getMessage());}
     }
-
+    
     private void openChatbotTab() {
         // Check if the "Chatbot" tab already exists
         for (Tab tab : tabPane.getTabs()) {
@@ -467,21 +473,19 @@ public class FrontendDriver extends Application {
             }
         }
 
-        // Generate a unique session ID for this chatbot tab
-        String sessionId = UUID.randomUUID().toString();
-
         // Create new VBox chatbot panel
         VBox chatbotBox = new VBox(10);
         chatbotBox.setStyle("-fx-background-color: lightgray; -fx-padding: 10;");
         chatbotBox.setPrefWidth(400);
 
-        // Chat history area
+        // Chat history area (fills the remaining space)
         ScrollPane scrollPane = new ScrollPane();
         VBox chatHistory = new VBox(5);
         chatHistory.setFillWidth(true);
         scrollPane.setContent(chatHistory);
         scrollPane.setFitToWidth(true);
         scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.ALWAYS);
+        VBox.setVgrow(scrollPane, Priority.ALWAYS);  // Make scrollPane take up remaining space
 
         // User input field
         TextField userInput = new TextField();
@@ -489,55 +493,48 @@ public class FrontendDriver extends Application {
 
         // Send button
         Button sendButton = new Button("Send");
-        sendButton.setOnAction(event -> {
-            String userMessage = userInput.getText();
-            if (!userMessage.trim().isEmpty()) {
-                chatHistory.getChildren().add(createUserMessage(userMessage));
+        sendButton.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
 
-                new Thread(() -> {
-                    try {
-                        // Build JSON body
-                        String json = """
-                        {
-                          "sessionId": "%s",
-                          "userInput": "%s"
-                        }
-                        """.formatted(sessionId, userMessage.replace("\"", "\\\""));
+        // Activate send button on "Enter"
+        userInput.setOnAction(event -> sendMessage(userInput, chatHistory, scrollPane));
 
-                        HttpClient client = HttpClient.newHttpClient();
-                        HttpRequest request = HttpRequest.newBuilder()
-                                .uri(URI.create("http://localhost:8080/api/chat"))
-                                .header("Content-Type", "application/json")
-                                .POST(HttpRequest.BodyPublishers.ofString(json))
-                                .build();
-
-                        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                        String botReply = response.body();
-
-                        Platform.runLater(() -> {
-                            chatHistory.getChildren().add(createChatbotResponse(botReply));
-                            scrollPane.setVvalue(1.0);
-                        });
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                        Platform.runLater(() -> chatHistory.getChildren().add(createChatbotResponse("⚠️ Error contacting AI")));
-                    }
-                }).start();
-
-                userInput.clear();
-            }
-        });
+        // Create an HBox to arrange input and button side by side
+        HBox inputBox = new HBox(10);
+        inputBox.setStyle("-fx-padding: 5;");
+        inputBox.getChildren().addAll(userInput, sendButton);
+        HBox.setHgrow(userInput, Priority.ALWAYS);  // Allow input field to grow
 
         // Add components to chatbot panel
-        chatbotBox.getChildren().addAll(scrollPane, userInput, sendButton);
+        chatbotBox.getChildren().addAll(scrollPane, inputBox);
 
         // Create a new tab named "Chatbot" and add the panel
         Tab chatbotTab = new Tab("Chatbot");
         chatbotTab.setContent(chatbotBox);
+        chatbotTab.setClosable(false);  // Set the tab to be non-closable
         tabPane.getTabs().add(chatbotTab);
         tabPane.getSelectionModel().select(chatbotTab);  // Switch to it
     }
 
+    // Helper method to send the message
+    private void sendMessage(TextField userInput, VBox chatHistory, ScrollPane scrollPane) {
+        String userMessage = userInput.getText();
+        if (!userMessage.trim().isEmpty()) {
+            chatHistory.getChildren().add(createUserMessage(userMessage));
+            chatHistory.getChildren().add(createChatbotResponse(
+                "You are currently viewing the " + getSelectedTabName() + " tab."
+            ));
+            userInput.clear();
+
+            // Wait for the layout to update, then scroll to the bottom
+            Platform.runLater(() -> {
+                chatHistory.heightProperty().addListener((observable, oldValue, newValue) -> {
+                    scrollPane.setVvalue(1.0); // Scroll to the bottom after layout update
+                });
+                chatHistory.layout(); 
+                scrollPane.setVvalue(1.0); 
+            });
+        }
+    }
 
 
     // Helper method to create the user message bubble
@@ -567,5 +564,36 @@ public class FrontendDriver extends Application {
         // In a real application, you'd check which tab is selected
         return "Revenue";  // Return a dummy value for now
     }
+    
+    private void generateMockMember(Label statusLabel) {
+        try {
+            HttpClient client = HttpClient.newHttpClient();
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("http://localhost:8080/generate-mock-member"))
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build();
+
+            client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(response -> Platform.runLater(() -> {
+                    statusLabel.setText("Mock member generated successfully!");
+                    statusLabel.setStyle("-fx-text-fill: green;");
+                }))
+                .exceptionally(ex -> {
+                    Platform.runLater(() -> {
+                        statusLabel.setText("Failed to generate mock member.");
+                        statusLabel.setStyle("-fx-text-fill: red;");
+                    });
+                    ex.printStackTrace();
+                    return null;
+                });
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            Platform.runLater(() -> {
+                statusLabel.setText("Failed to trigger mock member API.");
+                statusLabel.setStyle("-fx-text-fill: red;");
+            });
+        }
+    }
+
 
 }
