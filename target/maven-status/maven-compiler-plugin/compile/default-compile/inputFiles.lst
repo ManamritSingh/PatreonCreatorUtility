@@ -2,6 +2,7 @@
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/chatbot/ResponseInspector.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/execution/DataSeederController.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/apidata/TierDataFetchAPI.java
+/Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/chatbot/JdbcConversationRepository.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/MockMemberService.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/RewardTriggerService.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/models/Reward.java
@@ -45,7 +46,6 @@
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/frontend/utils/DatabaseServices.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/frontend/models/SurveyEntry.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/DataInitializer.java
-/Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/backend/chatbot/ConversationRepository.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/frontend/models/EmailReward.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/apidata/CampaignService.java
 /Users/christinewagner/Documents/GitHub/PatreonCreatorUtility/src/main/java/com/patreon/api/models/Tier.java

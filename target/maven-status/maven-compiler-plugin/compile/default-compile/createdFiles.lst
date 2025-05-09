@@ -2,6 +2,7 @@ com/patreon/backend/models/Reward.class
 com/patreon/backend/MockMemberService.class
 com/patreon/api/TokenStore.class
 com/patreon/backend/UserRepository.class
+com/patreon/backend/chatbot/ChatService.class
 com/patreon/frontend/utils/RewardController.class
 com/patreon/api/models/Tier.class
 com/patreon/api/Main.class
@@ -13,11 +14,13 @@ com/patreon/backend/models/TierSnapshot.class
 com/patreon/backend/SQLiteDialect.class
 com/patreon/backend/TierSnapshotRepository.class
 com/patreon/backend/models/User.class
+com/patreon/backend/chatbot/GoogleSearchService.class
 com/patreon/backend/DataInitializer.class
 com/patreon/backend/EmailController.class
 com/patreon/api/models/Campaign.class
 com/patreon/utils/DatabaseConnection.class
 com/patreon/backend/DemoApplication.class
+com/patreon/backend/chatbot/ResponseInspector.class
 com/patreon/frontend/models/EmailReward.class
 com/patreon/backend/RewardRepository.class
 com/patreon/frontend/utils/ChartCreator.class
@@ -31,6 +34,7 @@ com/patreon/apidata/MemberService.class
 com/patreon/backend/MockDataGenerator.class
 com/patreon/backend/RewardTriggerService.class
 com/patreon/frontend/models/EarningEntry.class
+com/patreon/backend/chatbot/JdbcConversationRepository.class
 com/patreon/frontend/utils/TableCreator.class
 com/patreon/api/models/Member.class
 com/patreon/frontend/utils/CSVParser.class
@@ -45,3 +49,5 @@ com/patreon/api/OAuthRedirectServer.class
 com/patreon/frontend/FrontendDriver.class
 com/patreon/utils/DatabaseExporter.class
 com/patreon/api/TokenResponse.class
+com/patreon/backend/chatbot/ChatMessage.class
+com/patreon/backend/chatbot/ChatController.class

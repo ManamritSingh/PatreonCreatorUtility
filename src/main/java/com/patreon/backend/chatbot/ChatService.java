@@ -4,33 +4,104 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.cdimascio.dotenv.Dotenv;
 import okhttp3.*;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.context.event.EventListener;
+
+import javax.sql.DataSource;
+import java.sql.*;
+
 
 @Service
 public class ChatService {
 
-    private final ConversationRepository conversationRepository;
+    private final JdbcConversationRepository conversationRepository;
     private final GoogleSearchService googleSearchService;
     private final OkHttpClient client = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
     private final String apiKey;
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
+    private final DataSource dataSource;
 
-    public ChatService(ConversationRepository repository, GoogleSearchService googleSearchService) {
+    public ChatService(JdbcConversationRepository repository, GoogleSearchService googleSearchService, DataSource dataSource) {
         this.conversationRepository = repository;
         this.googleSearchService = googleSearchService;
         this.apiKey = Dotenv.load().get("OPENAI_API_KEY");
+        this.dataSource = dataSource;
     }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void ensureConversationTableExists() {
+        new Thread(() -> {
+            try {
+                Thread.sleep(1000); // ⏳ Wait to ensure DB isn't locked by Spring/Hibernate
+
+                try (Connection conn = DriverManager.getConnection("jdbc:sqlite:JavaDatabase.db");
+                     Statement stmt = conn.createStatement()) {
+
+                    boolean tableExists = false;
+                    boolean shouldDrop = false;
+
+                    ResultSet rs = conn.getMetaData().getTables(null, null, "conversation", null);
+                    if (rs.next()) {
+                        tableExists = true;
+
+                        ResultSet countRs = stmt.executeQuery("SELECT COUNT(*) FROM conversation;");
+                        if (countRs.next() && countRs.getInt(1) == 0) {
+                            System.out.println("Table is empty");
+                            shouldDrop = true;
+                        }
+
+                        ResultSet nullIdRs = stmt.executeQuery("SELECT COUNT(*) FROM conversation WHERE id IS NULL;");
+                        if (nullIdRs.next() && nullIdRs.getInt(1) > 0) {
+                            System.out.println("Table has null IDs");
+                            shouldDrop = true;
+                        }
+                    }
+
+                    if (!tableExists || shouldDrop) {
+                        System.out.println("🧨 Dropping and recreating 'conversation' table...");
+                        stmt.executeUpdate("DROP TABLE IF EXISTS conversation;");
+                        stmt.executeUpdate("""
+                        CREATE TABLE conversation (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            session_id TEXT,
+                            role TEXT,
+                            message TEXT,
+                            timestamp INTEGER
+                        );
+                    """);
+                        System.out.println("Recreated 'conversation' table.");
+                    } else {
+                        System.out.println("'conversation' table is valid.");
+                    }
+
+                } catch (SQLException e) {
+                    System.err.println("Table check failed: " + e.getMessage());
+                    e.printStackTrace();
+                }
+
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }).start();
+    }
+
+
+
+
 
     private String extractKeywords(String input) {
         String lower = input.toLowerCase();
 
         // Remove common filler patterns (natural language prefaces)
-        lower = lower.replaceAll("\\b(please|can you|could you|would you|will you|may you|i want to know|tell me|show me|give me|let me know|what is|what's|whats|who is|top|latest|news about|update on|current|current events|today|now|happening in|what happened in|what do you know about)\\b", "");
+        lower = lower.replaceAll("\\b(please|hey|can you|could you|would you|will you|may you|i want to know|tell me|show me|give me|let me know|what is|what's|whats|who is|top|latest|news about|update on|current|current events|today|now|happening in|what happened in|what do you know about)\\b", "");
 
         // Remove stopwords and filler
         lower = lower.replaceAll("\\b(the|is|a|an|in|on|at|of|to|and|or|for|from|by)\\b", "");
@@ -53,14 +124,13 @@ public class ChatService {
 
         // Build context from history
         List<ChatMessage> history = conversationRepository.findBySessionIdOrderByTimestampAsc(sessionId);
-        System.out.println("📜 Loaded " + history.size() + " messages for session: " + sessionId);
-        System.out.println("🧠 Fetched " + history.size() + " messages for sessionId: " + sessionId);
+        System.out.println("Fetched " + history.size() + " messages for sessionId: " + sessionId);
         for (int i = 0; i < history.size(); i++) {
             ChatMessage m = history.get(i);
             if (m == null) {
-                System.out.println("⚠️ history[" + i + "] is null");
+                System.out.println("history[" + i + "] is null");
             } else {
-                System.out.println("📄 [" + m.getRole() + "] " + m.getMessage());
+                System.out.println(" [" + m.getRole() + "] " + m.getMessage());
             }
         }
 
@@ -73,11 +143,11 @@ public class ChatService {
 
         for (ChatMessage m : history) {
             if (m == null) {
-                System.out.println("⚠️ Skipping null message.");
+                System.out.println("Skipping null message.");
                 continue;
             }
             if (m.getRole() == null || m.getMessage() == null) {
-                System.out.println("⚠️ Skipping incomplete message: " + m);
+                System.out.println("Skipping incomplete message: " + m);
                 continue;
             }
 
@@ -120,7 +190,7 @@ public class ChatService {
 
             try (Response response = client.newCall(request).execute()) {
                 if (!response.isSuccessful()) {
-                    return "❌ OpenAI error: " + response.code() + " " + response.message();
+                    return "OpenAI error: " + response.code() + " " + response.message();
 
                 }
 
@@ -139,7 +209,7 @@ public class ChatService {
             }
 
         } catch (IOException e) {
-            return "❌ Request failed: " + e.getMessage();
+            return "Request failed: " + e.getMessage();
         }
     }
 
